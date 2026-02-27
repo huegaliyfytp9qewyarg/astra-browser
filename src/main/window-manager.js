@@ -34,10 +34,14 @@ function createMainWindow() {
   // Set initial bounds
   updateLayout();
 
-  // Update layout on resize
+  // Update layout on ALL size-changing events
   mainWindow.on('resized', updateLayout);
+  mainWindow.on('resize', updateLayout);
   mainWindow.on('maximize', updateLayout);
   mainWindow.on('unmaximize', updateLayout);
+  mainWindow.on('enter-full-screen', updateLayout);
+  mainWindow.on('leave-full-screen', updateLayout);
+  mainWindow.on('restore', updateLayout);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -57,6 +61,12 @@ function updateLayout() {
   if (!mainWindow || !chromeView) return;
   const { width, height } = mainWindow.getContentBounds();
   chromeView.setBounds({ x: 0, y: 0, width, height: CHROME_HEIGHT });
+
+  // Also resize the active tab
+  try {
+    const tabManager = require('./tab-manager');
+    tabManager.updateActiveTabBounds();
+  } catch { /* tab manager not ready yet */ }
 }
 
 function getMainWindow() {

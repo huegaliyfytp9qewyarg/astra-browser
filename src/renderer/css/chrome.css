@@ -32,8 +32,12 @@ html, body {
   overflow-x: auto;
   overflow-y: hidden;
   flex: 1;
-  -webkit-app-region: no-drag;
+  -webkit-app-region: drag;
   scrollbar-width: none;
+}
+
+#tabs-container .tab {
+  -webkit-app-region: no-drag;
 }
 
 #tabs-container::-webkit-scrollbar {
@@ -143,8 +147,8 @@ html, body {
 }
 
 #drag-spacer {
-  flex: 0 0 auto;
-  width: 60px;
+  flex: 1 1 auto;
+  min-width: 30px;
   -webkit-app-region: drag;
 }
 
