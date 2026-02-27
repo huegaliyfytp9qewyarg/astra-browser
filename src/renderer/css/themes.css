@@ -1,0 +1,47 @@
+/* Light Theme */
+body.theme-light {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f0f0f4;
+  --bg-tab: #e0e0e4;
+  --bg-tab-active: #ffffff;
+  --bg-tab-hover: #ebebef;
+  --bg-toolbar: #f0f0f4;
+  --text-primary: #1a1a2e;
+  --text-secondary: #5c5c7a;
+  --text-muted: #8e8ea0;
+  --border: #d4d4dc;
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --address-bg: #ffffff;
+  --address-border: #d4d4dc;
+  --address-focus-border: #6366f1;
+  --btn-hover: rgba(0, 0, 0, 0.06);
+  --close-hover: #e81123;
+  --badge-bg: #6366f1;
+  --badge-text: #ffffff;
+  --scrollbar-thumb: #c4c4cc;
+}
+
+/* Dark Theme (Default) */
+body.theme-dark {
+  --bg-primary: #1a1b26;
+  --bg-secondary: #16161e;
+  --bg-tab: #24253a;
+  --bg-tab-active: #1a1b26;
+  --bg-tab-hover: #2a2b42;
+  --bg-toolbar: #1a1b26;
+  --text-primary: #c0caf5;
+  --text-secondary: #9aa5ce;
+  --text-muted: #565f89;
+  --border: #2f3051;
+  --accent: #7aa2f7;
+  --accent-hover: #89b4fa;
+  --address-bg: #24253a;
+  --address-border: #2f3051;
+  --address-focus-border: #7aa2f7;
+  --btn-hover: rgba(255, 255, 255, 0.08);
+  --close-hover: #e81123;
+  --badge-bg: #7aa2f7;
+  --badge-text: #1a1b26;
+  --scrollbar-thumb: #3b3d57;
+}

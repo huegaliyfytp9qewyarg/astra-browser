@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>History - Astra</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: #1a1b26;
+      color: #c0caf5;
+      min-height: 100vh;
+      padding: 32px;
+    }
+    .container { max-width: 700px; margin: 0 auto; }
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; color: #7aa2f7; }
+    .subtitle { color: #565f89; margin-bottom: 24px; font-size: 14px; }
+    .search-bar {
+      width: 100%; padding: 10px 16px;
+      background: #24253a; border: 1px solid #2f3051;
+      border-radius: 8px; color: #c0caf5; font-size: 14px;
+      outline: none; margin-bottom: 24px;
+    }
+    .search-bar:focus { border-color: #7aa2f7; }
+    .date-group { margin-bottom: 24px; }
+    .date-header { font-size: 13px; font-weight: 600; color: #565f89; margin-bottom: 8px; }
+    .history-item {
+      display: flex; align-items: center; gap: 12px; padding: 8px 12px;
+      border-radius: 6px; cursor: pointer; transition: background 0.15s;
+    }
+    .history-item:hover { background: rgba(255,255,255,0.04); }
+    .history-favicon { width: 16px; height: 16px; border-radius: 2px; flex-shrink: 0; }
+    .history-info { flex: 1; overflow: hidden; }
+    .history-title { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-url { font-size: 11px; color: #565f89; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-time { font-size: 11px; color: #565f89; flex-shrink: 0; }
+    .empty { text-align: center; padding: 60px 20px; color: #565f89; }
+    .clear-btn {
+      background: #f7768e; color: #1a1b26; border: none;
+      padding: 8px 16px; border-radius: 6px; cursor: pointer;
+      font-size: 13px; font-weight: 600; float: right; margin-bottom: 16px;
+    }
+    .clear-btn:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>History</h1>
+    <p class="subtitle">Your browsing history (stored locally only)</p>
+    <input class="search-bar" type="text" placeholder="Search history...">
+    <div id="history-list">
+      <div class="empty">Your browsing history will appear here.</div>
+    </div>
+  </div>
+</body>
+</html>

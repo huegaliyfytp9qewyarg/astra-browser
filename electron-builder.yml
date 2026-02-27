@@ -1,0 +1,39 @@
+appId: com.astra.browser
+productName: Astra
+copyright: Copyright 2026
+
+directories:
+  output: dist
+  buildResources: assets
+
+files:
+  - src/**/*
+  - filter-lists/**/*
+  - node_modules/**/*
+  - package.json
+
+asar: true
+compression: maximum
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+    - zip
+
+win:
+  target:
+    - nsis
+    - portable
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  category: Network
+  target:
+    - AppImage
+    - deb
+
+publish: null

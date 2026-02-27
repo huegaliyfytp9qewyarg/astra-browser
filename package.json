@@ -1,0 +1,28 @@
+{
+  "name": "astra-browser",
+  "version": "0.1.0",
+  "description": "Astra - Privacy-focused browser with built-in meta search",
+  "author": "Astra",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder --win --mac --linux"
+  },
+  "dependencies": {
+    "@ghostery/adblocker-electron": "^2.5.0",
+    "@ghostery/adblocker-electron-preload": "^2.5.0",
+    "better-sqlite3": "^11.0.0",
+    "cross-fetch": "^4.0.0",
+    "duck-duck-scrape": "^2.2.0",
+    "electron-store": "^10.0.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "@electron/rebuild": "^3.7.0"
+  }
+}

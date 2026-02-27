@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Search - Astra</title>
+  <link rel="stylesheet" href="astra://css/search.css">
+</head>
+<body>
+  <div class="search-container">
+    <div class="search-header">
+      <a href="astra://newtab" class="search-logo">Astra</a>
+      <div class="search-input-wrap">
+        <input class="search-input" id="search-input" type="text" placeholder="Search with Astra..." autofocus>
+      </div>
+    </div>
+
+    <div id="search-stats" class="search-stats"></div>
+    <div id="search-results" class="search-results">
+      <div class="search-loading">
+        <div class="loading-spinner"></div>
+        <p>Searching...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const resultsContainer = document.getElementById('search-results');
+    const statsContainer = document.getElementById('search-stats');
+    const searchInput = document.getElementById('search-input');
+
+    // Get query from URL
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get('q') || '';
+    searchInput.value = query;
+    document.title = query ? `${query} - Astra Search` : 'Astra Search';
+
+    // Search on Enter
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const q = searchInput.value.trim();
+        if (q) {
+          window.location.href = 'astra://search?q=' + encodeURIComponent(q);
+        }
+      }
+    });
+
+    // Perform search via IPC if available, otherwise fetch
+    async function performSearch(q) {
+      if (!q) {
+        resultsContainer.innerHTML = '<div class="no-results">Enter a search query to get started.</div>';
+        return;
+      }
+
+      resultsContainer.innerHTML = '<div class="search-loading"><div class="loading-spinner"></div><p>Searching...</p></div>';
+
+      try {
+        // Use fetch to call the search API via custom protocol
+        // The main process intercepts this and returns results
+        const response = await fetch('astra://search/api?q=' + encodeURIComponent(q));
+        let data;
+
+        if (response.ok) {
+          data = await response.json();
+        } else {
+          // Fallback: try a direct DuckDuckGo redirect approach
+          throw new Error('Search API not available');
+        }
+
+        renderResults(data);
+      } catch (err) {
+        // If IPC search fails, show a fallback message with a DDG link
+        resultsContainer.innerHTML = `
+          <div class="search-error">
+            <p>Search encountered an error. <a href="https://duckduckgo.com/?q=${encodeURIComponent(q)}" style="color: #7aa2f7;">Try DuckDuckGo instead</a></p>
+          </div>`;
+      }
+    }
+
+    function renderResults(data) {
+      if (!data.results || data.results.length === 0) {
+        statsContainer.textContent = '';
+        resultsContainer.innerHTML = '<div class="no-results">No results found. Try a different search.</div>';
+        return;
+      }
+
+      statsContainer.textContent = `About ${data.total} results`;
+
+      resultsContainer.innerHTML = data.results.map(r => `
+        <div class="result-item">
+          <div class="result-url">${escapeHtml(r.url)}</div>
+          <a class="result-title" href="${escapeHtml(r.url)}">${escapeHtml(r.title)}</a>
+          <div class="result-description">${escapeHtml(r.description)}</div>
+          ${r.sources ? `<div class="result-sources">${r.sources.map(s => `<span class="source-badge">${escapeHtml(s)}</span>`).join('')}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Start search
+    if (query) {
+      performSearch(query);
+    }
+  </script>
+</body>
+</html>
