@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('astra', {
     close: (id) => ipcRenderer.invoke('tab:close', id),
     switch: (id) => ipcRenderer.invoke('tab:switch', id),
     getAll: () => ipcRenderer.invoke('tab:getAll'),
+    reorder: (id, newIndex) => ipcRenderer.invoke('tab:reorder', id, newIndex),
+    detach: (id) => ipcRenderer.invoke('tab:detach', id),
     onUpdate: (cb) => {
       ipcRenderer.on('tab:updated', (_e, data) => cb(data));
     },

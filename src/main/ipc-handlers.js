@@ -22,6 +22,14 @@ function registerIpcHandlers() {
     return tabManager.getAllTabs();
   });
 
+  ipcMain.handle('tab:reorder', (_e, tabId, newIndex) => {
+    tabManager.reorderTab(tabId, newIndex);
+  });
+
+  ipcMain.handle('tab:detach', (_e, tabId) => {
+    tabManager.detachTab(tabId);
+  });
+
   // Navigation
   ipcMain.handle(IPC.NAV_GO, (_e, input) => {
     navigation.navigate(input);

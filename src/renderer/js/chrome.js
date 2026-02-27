@@ -1,4 +1,4 @@
-// Tab bar UI logic
+// Tab bar UI logic with drag reorder and detach
 const tabsContainer = document.getElementById('tabs-container');
 const newTabBtn = document.getElementById('new-tab-btn');
 
@@ -8,23 +8,27 @@ document.getElementById('max-btn').addEventListener('click', () => astra.window.
 document.getElementById('close-btn').addEventListener('click', () => astra.window.close());
 
 // New tab
-newTabBtn.addEventListener('click', () => {
-  astra.tabs.create();
-});
+newTabBtn.addEventListener('click', () => astra.tabs.create());
 
-// Render all tabs
+// Current tabs data
+let currentTabs = [];
+let dragState = null;
+
 function renderTabs(tabs) {
+  currentTabs = tabs;
   tabsContainer.innerHTML = '';
-  tabs.forEach((tab) => {
-    const el = createTabElement(tab);
+  tabs.forEach((tab, index) => {
+    const el = createTabElement(tab, index);
     tabsContainer.appendChild(el);
   });
 }
 
-function createTabElement(tab) {
+function createTabElement(tab, index) {
   const el = document.createElement('div');
   el.className = 'tab' + (tab.isActive ? ' active' : '');
   el.dataset.tabId = tab.id;
+  el.dataset.index = index;
+  el.draggable = true;
 
   // Favicon
   if (tab.isLoading) {
@@ -35,9 +39,8 @@ function createTabElement(tab) {
     const img = document.createElement('img');
     img.className = 'tab-favicon';
     img.src = tab.favicon;
-    img.onerror = () => {
-      img.style.display = 'none';
-    };
+    img.draggable = false;
+    img.onerror = () => { img.style.display = 'none'; };
     el.appendChild(img);
   }
 
@@ -58,9 +61,7 @@ function createTabElement(tab) {
   el.appendChild(closeBtn);
 
   // Click to switch
-  el.addEventListener('click', () => {
-    astra.tabs.switch(tab.id);
-  });
+  el.addEventListener('click', () => astra.tabs.switch(tab.id));
 
   // Middle click to close
   el.addEventListener('mousedown', (e) => {
@@ -70,28 +71,105 @@ function createTabElement(tab) {
     }
   });
 
+  // Drag start
+  el.addEventListener('dragstart', (e) => {
+    dragState = {
+      tabId: tab.id,
+      index: index,
+      startX: e.screenX,
+      startY: e.screenY,
+    };
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', tab.id.toString());
+    el.classList.add('dragging');
+    // Slight delay to let the drag image render
+    setTimeout(() => el.style.opacity = '0.4', 0);
+  });
+
+  el.addEventListener('dragend', (e) => {
+    el.style.opacity = '';
+    el.classList.remove('dragging');
+
+    // Check if dragged far enough vertically to detach
+    if (dragState) {
+      const dy = Math.abs(e.screenY - dragState.startY);
+      if (dy > 80) {
+        astra.tabs.detach(dragState.tabId);
+      }
+    }
+    dragState = null;
+
+    // Remove all drop indicators
+    document.querySelectorAll('.tab').forEach((t) => {
+      t.classList.remove('drop-left', 'drop-right');
+    });
+  });
+
+  // Drag over — show drop indicator
+  el.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    if (!dragState) return;
+    const rect = el.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+
+    // Show indicator on left or right side
+    document.querySelectorAll('.tab').forEach((t) => {
+      t.classList.remove('drop-left', 'drop-right');
+    });
+
+    if (e.clientX < midX) {
+      el.classList.add('drop-left');
+    } else {
+      el.classList.add('drop-right');
+    }
+  });
+
+  el.addEventListener('dragleave', () => {
+    el.classList.remove('drop-left', 'drop-right');
+  });
+
+  // Drop — reorder
+  el.addEventListener('drop', (e) => {
+    e.preventDefault();
+    el.classList.remove('drop-left', 'drop-right');
+
+    if (!dragState) return;
+    const rect = el.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+    let newIndex = parseInt(el.dataset.index);
+
+    if (e.clientX >= midX) {
+      newIndex = newIndex + 1;
+    }
+
+    // Adjust if dragging forward
+    if (dragState.index < newIndex) {
+      newIndex = newIndex - 1;
+    }
+
+    if (newIndex !== dragState.index) {
+      astra.tabs.reorder(dragState.tabId, newIndex);
+    }
+  });
+
   return el;
 }
 
 // Listen for tab updates
-astra.tabs.onAllUpdated((tabs) => {
-  renderTabs(tabs);
-});
+astra.tabs.onAllUpdated((tabs) => renderTabs(tabs));
 
 astra.tabs.onUpdate((tab) => {
-  // Update a single tab element
-  const el = tabsContainer.querySelector(`[data-tab-id="${tab.id}"]`);
+  const el = tabsContainer.querySelector('[data-tab-id="' + tab.id + '"]');
   if (el) {
-    const newEl = createTabElement(tab);
+    const index = parseInt(el.dataset.index);
+    const newEl = createTabElement(tab, index);
     el.replaceWith(newEl);
   }
 });
 
 // Initial load
 astra.tabs.getAll().then((tabs) => {
-  if (tabs.length === 0) {
-    // No tabs exist yet, the main process will create one
-  } else {
-    renderTabs(tabs);
-  }
+  if (tabs.length > 0) renderTabs(tabs);
 });

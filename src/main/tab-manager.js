@@ -1,9 +1,10 @@
-const { WebContentsView, session } = require('electron');
+const { WebContentsView, BaseWindow } = require('electron');
 const path = require('path');
 const { getMainWindow, getChromeView, getContentBounds } = require('./window-manager');
-const { DEFAULT_URL } = require('../shared/constants');
+const { DEFAULT_URL, CHROME_HEIGHT } = require('../shared/constants');
 
 let tabs = new Map();
+let tabOrder = []; // Track tab order for reordering
 let activeTabId = null;
 let tabCounter = 0;
 
@@ -34,9 +35,9 @@ function createTab(url = DEFAULT_URL) {
   };
 
   tabs.set(tabId, tabInfo);
+  tabOrder.push(tabId);
   win.contentView.addChildView(view);
 
-  // Set up webContents event listeners
   const wc = view.webContents;
 
   wc.on('did-start-loading', () => {
@@ -58,12 +59,11 @@ function createTab(url = DEFAULT_URL) {
     notifyChromeTabUpdate(tabId);
     notifyChromeNavState(tabId);
 
-    // Record in history (skip internal pages)
     if (navUrl && !navUrl.startsWith('astra://')) {
       try {
         const historyDb = require('./storage/history-db');
         historyDb.addVisit(navUrl, tabInfo.title, tabInfo.favicon);
-      } catch { /* ignore if DB not ready */ }
+      } catch { /* ignore */ }
     }
   });
 
@@ -73,6 +73,20 @@ function createTab(url = DEFAULT_URL) {
     tabInfo.canGoForward = wc.canGoForward();
     notifyChromeTabUpdate(tabId);
     notifyChromeNavState(tabId);
+  });
+
+  // When a search page finishes loading, inject search results
+  wc.on('did-finish-load', () => {
+    const currentUrl = wc.getURL();
+    if (currentUrl && currentUrl.startsWith('astra://search')) {
+      try {
+        const url = new URL(currentUrl);
+        const query = url.searchParams.get('q');
+        if (query) {
+          performSearchAndInject(wc, query);
+        }
+      } catch { /* ignore */ }
+    }
   });
 
   wc.on('page-title-updated', (_e, title) => {
@@ -87,27 +101,40 @@ function createTab(url = DEFAULT_URL) {
     notifyChromeTabUpdate(tabId);
   });
 
-  wc.on('did-fail-load', (_e, errorCode, errorDescription, validatedURL) => {
-    if (errorCode === -3) return; // Aborted, ignore
+  wc.on('did-fail-load', (_e, errorCode) => {
+    if (errorCode === -3) return;
     tabInfo.isLoading = false;
     notifyChromeTabUpdate(tabId);
   });
 
-  // Handle target=_blank links: open in new tab
   wc.setWindowOpenHandler(({ url: newUrl }) => {
     createTab(newUrl);
     return { action: 'deny' };
   });
 
-  // Navigate to the URL
-  if (url.startsWith('astra://')) {
-    wc.loadURL(url);
-  } else {
-    wc.loadURL(url);
-  }
-
+  wc.loadURL(url);
   switchTab(tabId);
   return tabId;
+}
+
+async function performSearchAndInject(wc, query) {
+  try {
+    const searchEngine = require('./search-engine');
+    const results = await searchEngine.search(query);
+    const json = JSON.stringify(results);
+    wc.executeJavaScript(`
+      if (typeof window.receiveSearchResults === 'function') {
+        window.receiveSearchResults(${JSON.stringify(json)});
+      }
+    `);
+  } catch (err) {
+    const msg = err.message || 'Search failed';
+    wc.executeJavaScript(`
+      if (typeof window.receiveSearchError === 'function') {
+        window.receiveSearchError(${JSON.stringify(msg)});
+      }
+    `);
+  }
 }
 
 function closeTab(tabId) {
@@ -121,14 +148,12 @@ function closeTab(tabId) {
 
   tab.view.webContents.close();
   tabs.delete(tabId);
+  tabOrder = tabOrder.filter((id) => id !== tabId);
 
-  // If we closed the active tab, switch to the last remaining tab
   if (activeTabId === tabId) {
-    const remaining = Array.from(tabs.keys());
-    if (remaining.length > 0) {
-      switchTab(remaining[remaining.length - 1]);
+    if (tabOrder.length > 0) {
+      switchTab(tabOrder[tabOrder.length - 1]);
     } else {
-      // No tabs left, create a new one
       createTab();
     }
   }
@@ -143,7 +168,6 @@ function switchTab(tabId) {
   activeTabId = tabId;
   const bounds = getContentBounds();
 
-  // Hide all tabs, show the active one
   for (const [id, t] of tabs) {
     if (id === tabId) {
       t.view.setBounds(bounds);
@@ -154,6 +178,76 @@ function switchTab(tabId) {
 
   notifyChromeAllTabs();
   notifyChromeNavState(tabId);
+}
+
+function reorderTab(tabId, newIndex) {
+  const oldIndex = tabOrder.indexOf(tabId);
+  if (oldIndex === -1) return;
+  tabOrder.splice(oldIndex, 1);
+  tabOrder.splice(newIndex, 0, tabId);
+  notifyChromeAllTabs();
+}
+
+function detachTab(tabId) {
+  const tab = tabs.get(tabId);
+  if (!tab) return;
+  if (tabs.size <= 1) return; // Don't detach the last tab
+
+  const oldWin = getMainWindow();
+  if (oldWin) {
+    oldWin.contentView.removeChildView(tab.view);
+  }
+
+  // Remove from current window's tab list
+  tabs.delete(tabId);
+  tabOrder = tabOrder.filter((id) => id !== tabId);
+
+  if (activeTabId === tabId && tabOrder.length > 0) {
+    switchTab(tabOrder[tabOrder.length - 1]);
+  }
+  notifyChromeAllTabs();
+
+  // Create a new standalone window for this tab
+  const newWin = new BaseWindow({
+    width: 900,
+    height: 600,
+    minWidth: 400,
+    minHeight: 300,
+    frame: false,
+    title: tab.title || 'Astra',
+    backgroundColor: '#1a1b26',
+  });
+
+  const chromeView = new WebContentsView({
+    webPreferences: {
+      preload: path.join(__dirname, '..', 'preload', 'preload.js'),
+      contextIsolation: true,
+      sandbox: false,
+      nodeIntegration: false,
+    },
+  });
+
+  newWin.contentView.addChildView(chromeView);
+  newWin.contentView.addChildView(tab.view);
+
+  chromeView.webContents.loadFile(
+    path.join(__dirname, '..', 'renderer', 'index.html')
+  );
+
+  const updateNewLayout = () => {
+    const { width, height } = newWin.getContentBounds();
+    chromeView.setBounds({ x: 0, y: 0, width, height: CHROME_HEIGHT });
+    tab.view.setBounds({ x: 0, y: CHROME_HEIGHT, width, height: height - CHROME_HEIGHT });
+  };
+
+  updateNewLayout();
+  newWin.on('resized', updateNewLayout);
+  newWin.on('resize', updateNewLayout);
+  newWin.on('maximize', updateNewLayout);
+  newWin.on('unmaximize', updateNewLayout);
+  newWin.on('enter-full-screen', updateNewLayout);
+  newWin.on('leave-full-screen', updateNewLayout);
+  newWin.on('restore', updateNewLayout);
 }
 
 function getActiveTabId() {
@@ -169,14 +263,18 @@ function getTab(tabId) {
 }
 
 function getAllTabs() {
-  return Array.from(tabs.values()).map((t) => ({
-    id: t.id,
-    title: t.title,
-    url: t.url,
-    favicon: t.favicon,
-    isLoading: t.isLoading,
-    isActive: t.id === activeTabId,
-  }));
+  return tabOrder.map((id) => {
+    const t = tabs.get(id);
+    if (!t) return null;
+    return {
+      id: t.id,
+      title: t.title,
+      url: t.url,
+      favicon: t.favicon,
+      isLoading: t.isLoading,
+      isActive: t.id === activeTabId,
+    };
+  }).filter(Boolean);
 }
 
 function getTabCount() {
@@ -184,23 +282,20 @@ function getTabCount() {
 }
 
 function switchToNextTab() {
-  const ids = Array.from(tabs.keys());
-  const idx = ids.indexOf(activeTabId);
-  const nextIdx = (idx + 1) % ids.length;
-  switchTab(ids[nextIdx]);
+  const idx = tabOrder.indexOf(activeTabId);
+  const nextIdx = (idx + 1) % tabOrder.length;
+  switchTab(tabOrder[nextIdx]);
 }
 
 function switchToPrevTab() {
-  const ids = Array.from(tabs.keys());
-  const idx = ids.indexOf(activeTabId);
-  const prevIdx = (idx - 1 + ids.length) % ids.length;
-  switchTab(ids[prevIdx]);
+  const idx = tabOrder.indexOf(activeTabId);
+  const prevIdx = (idx - 1 + tabOrder.length) % tabOrder.length;
+  switchTab(tabOrder[prevIdx]);
 }
 
 function switchToTabIndex(index) {
-  const ids = Array.from(tabs.keys());
-  if (index >= 0 && index < ids.length) {
-    switchTab(ids[index]);
+  if (index >= 0 && index < tabOrder.length) {
+    switchTab(tabOrder[index]);
   }
 }
 
@@ -212,7 +307,6 @@ function updateActiveTabBounds() {
   tab.view.setBounds(bounds);
 }
 
-// Notify chrome UI about tab changes
 function notifyChromeTabUpdate(tabId) {
   const chrome = getChromeView();
   if (!chrome) return;
@@ -253,6 +347,8 @@ module.exports = {
   createTab,
   closeTab,
   switchTab,
+  reorderTab,
+  detachTab,
   getActiveTabId,
   getActiveTab,
   getTab,

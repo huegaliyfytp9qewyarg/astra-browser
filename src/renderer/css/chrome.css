@@ -73,6 +73,18 @@ html, body {
   margin-bottom: -1px;
 }
 
+.tab.dragging {
+  opacity: 0.4;
+}
+
+.tab.drop-left {
+  border-left: 2px solid var(--accent);
+}
+
+.tab.drop-right {
+  border-right: 2px solid var(--accent);
+}
+
 .tab-favicon {
   width: 14px;
   height: 14px;

@@ -29,53 +29,41 @@
     const statsContainer = document.getElementById('search-stats');
     const searchInput = document.getElementById('search-input');
 
-    // Get query from URL
     const params = new URLSearchParams(window.location.search);
     const query = params.get('q') || '';
     searchInput.value = query;
-    document.title = query ? `${query} - Astra Search` : 'Astra Search';
+    document.title = query ? query + ' - Astra Search' : 'Astra Search';
 
-    // Search on Enter
-    searchInput.addEventListener('keydown', (e) => {
+    if (!query) {
+      resultsContainer.innerHTML = '<div class="no-results">Enter a search query to get started.</div>';
+    }
+
+    // Search on Enter — navigate to new search URL
+    searchInput.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
-        const q = searchInput.value.trim();
+        var q = searchInput.value.trim();
         if (q) {
           window.location.href = 'astra://search?q=' + encodeURIComponent(q);
         }
       }
     });
 
-    // Perform search via IPC if available, otherwise fetch
-    async function performSearch(q) {
-      if (!q) {
-        resultsContainer.innerHTML = '<div class="no-results">Enter a search query to get started.</div>';
-        return;
-      }
-
-      resultsContainer.innerHTML = '<div class="search-loading"><div class="loading-spinner"></div><p>Searching...</p></div>';
-
+    // Called by main process via executeJavaScript after search completes
+    window.receiveSearchResults = function(jsonStr) {
       try {
-        // Use fetch to call the search API via custom protocol
-        // The main process intercepts this and returns results
-        const response = await fetch('astra://search/api?q=' + encodeURIComponent(q));
-        let data;
-
-        if (response.ok) {
-          data = await response.json();
-        } else {
-          // Fallback: try a direct DuckDuckGo redirect approach
-          throw new Error('Search API not available');
-        }
-
+        var data = JSON.parse(jsonStr);
         renderResults(data);
       } catch (err) {
-        // If IPC search fails, show a fallback message with a DDG link
-        resultsContainer.innerHTML = `
-          <div class="search-error">
-            <p>Search encountered an error. <a href="https://duckduckgo.com/?q=${encodeURIComponent(q)}" style="color: #7aa2f7;">Try DuckDuckGo instead</a></p>
-          </div>`;
+        resultsContainer.innerHTML = '<div class="search-error"><p>Failed to parse search results.</p></div>';
       }
-    }
+    };
+
+    window.receiveSearchError = function(msg) {
+      resultsContainer.innerHTML =
+        '<div class="search-error"><p>Search error: ' + escapeHtml(msg) + '</p>' +
+        '<p style="margin-top:12px"><a href="https://duckduckgo.com/?q=' + encodeURIComponent(query) +
+        '" style="color:#7aa2f7">Try DuckDuckGo directly</a></p></div>';
+    };
 
     function renderResults(data) {
       if (!data.results || data.results.length === 0) {
@@ -84,28 +72,32 @@
         return;
       }
 
-      statsContainer.textContent = `About ${data.total} results`;
+      statsContainer.textContent = 'About ' + data.total + ' results';
 
-      resultsContainer.innerHTML = data.results.map(r => `
-        <div class="result-item">
-          <div class="result-url">${escapeHtml(r.url)}</div>
-          <a class="result-title" href="${escapeHtml(r.url)}">${escapeHtml(r.title)}</a>
-          <div class="result-description">${escapeHtml(r.description)}</div>
-          ${r.sources ? `<div class="result-sources">${r.sources.map(s => `<span class="source-badge">${escapeHtml(s)}</span>`).join('')}</div>` : ''}
-        </div>
-      `).join('');
+      var html = '';
+      for (var i = 0; i < data.results.length; i++) {
+        var r = data.results[i];
+        html += '<div class="result-item">';
+        html += '<div class="result-url">' + escapeHtml(r.url) + '</div>';
+        html += '<a class="result-title" href="' + escapeHtml(r.url) + '">' + escapeHtml(r.title) + '</a>';
+        html += '<div class="result-description">' + escapeHtml(r.description) + '</div>';
+        if (r.sources && r.sources.length) {
+          html += '<div class="result-sources">';
+          for (var j = 0; j < r.sources.length; j++) {
+            html += '<span class="source-badge">' + escapeHtml(r.sources[j]) + '</span>';
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+      resultsContainer.innerHTML = html;
     }
 
     function escapeHtml(text) {
       if (!text) return '';
-      const div = document.createElement('div');
+      var div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
-    }
-
-    // Start search
-    if (query) {
-      performSearch(query);
     }
   </script>
 </body>
