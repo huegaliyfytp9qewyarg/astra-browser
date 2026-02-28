@@ -84,6 +84,152 @@
 
   <script src="js/chrome.js"></script>
   <script src="js/toolbar.js"></script>
-  <script src="js/bookmarks-bar.js"></script>
+  <script>
+  // Inline bookmark logic — debug version
+  (function() {
+    var bmBtn = document.getElementById('bookmark-btn');
+    var bmEmpty = document.getElementById('bookmark-icon-empty');
+    var bmFilled = document.getElementById('bookmark-icon-filled');
+    var addrBar = document.getElementById('address-bar');
+    var bmItems = document.getElementById('bookmarks-items');
+
+    var pageUrl = '';
+    var pageTitle = '';
+    var pageFavicon = '';
+    var isBm = false;
+
+    // DEBUG: Show this ran — set title
+    document.title = 'Astra [BM:loaded]';
+
+    // Test click immediately
+    if (bmBtn) {
+      bmBtn.addEventListener('click', handleBookmarkClick);
+      bmBtn.addEventListener('mousedown', function(e) {
+        document.title = 'Astra [BM:mousedown]';
+      });
+    }
+
+    async function handleBookmarkClick() {
+      document.title = 'Astra [BM:clicked]';
+
+      var url = pageUrl;
+      if (!url || url.indexOf('astra://') === 0) {
+        url = addrBar ? addrBar.value.trim() : '';
+      }
+      if (!url || url.indexOf('astra://') === 0) {
+        document.title = 'Astra [BM:no-url]';
+        return;
+      }
+
+      try {
+        if (isBm) {
+          await astra.bookmarks.remove(url);
+          isBm = false;
+          document.title = 'Astra [BM:removed]';
+        } else {
+          await astra.bookmarks.add({
+            title: pageTitle || url,
+            url: url,
+            favicon: pageFavicon || null
+          });
+          isBm = true;
+          document.title = 'Astra [BM:added!]';
+        }
+        updateIcon();
+        loadBar();
+      } catch (err) {
+        document.title = 'Astra [BM:ERROR ' + err.message + ']';
+      }
+    }
+
+    function updateIcon() {
+      if (isBm) {
+        bmEmpty.style.display = 'none';
+        bmFilled.style.display = '';
+      } else {
+        bmEmpty.style.display = '';
+        bmFilled.style.display = 'none';
+      }
+    }
+
+    async function loadBar() {
+      try {
+        var bookmarks = await astra.bookmarks.getBar();
+        renderBar(bookmarks);
+      } catch (err) {
+        bmItems.innerHTML = '<span class="bookmarks-empty">Error: ' + err.message + '</span>';
+      }
+    }
+
+    function renderBar(bookmarks) {
+      bmItems.innerHTML = '';
+      if (!bookmarks || bookmarks.length === 0) {
+        bmItems.innerHTML = '<span class="bookmarks-empty">Press Ctrl+D to bookmark a page</span>';
+        return;
+      }
+      bookmarks.forEach(function(bm) {
+        var el = document.createElement('button');
+        el.className = 'bookmark-item';
+        el.title = bm.url || bm.title;
+        if (bm.favicon) {
+          var img = document.createElement('img');
+          img.className = 'bookmark-item-favicon';
+          img.src = bm.favicon;
+          img.draggable = false;
+          img.onerror = function() { img.style.display = 'none'; };
+          el.appendChild(img);
+        }
+        var t = document.createElement('span');
+        t.className = 'bookmark-item-title';
+        t.textContent = bm.title || bm.url;
+        el.appendChild(t);
+        el.addEventListener('click', function() {
+          if (bm.url) astra.nav.go(bm.url);
+        });
+        el.addEventListener('contextmenu', function(e) {
+          e.preventDefault();
+          if (bm.url) {
+            astra.bookmarks.remove(bm.url).then(function() {
+              loadBar();
+              if (bm.url === pageUrl) { isBm = false; updateIcon(); }
+            });
+          }
+        });
+        bmItems.appendChild(el);
+      });
+    }
+
+    // Nav state listener
+    astra.nav.onStateChanged(function(state) {
+      pageUrl = state.url || '';
+      pageTitle = state.title || '';
+      if (!pageUrl || pageUrl.indexOf('astra://') === 0) {
+        bmBtn.style.visibility = 'hidden';
+      } else {
+        bmBtn.style.visibility = 'visible';
+        astra.bookmarks.isBookmarked(pageUrl).then(function(val) {
+          isBm = val;
+          updateIcon();
+        }).catch(function() {});
+      }
+    });
+
+    // Ctrl+D
+    document.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        handleBookmarkClick();
+      }
+    });
+
+    // Favicon capture
+    astra.tabs.onUpdate(function(tab) {
+      if (tab.isActive && tab.favicon) pageFavicon = tab.favicon;
+    });
+
+    // Initial load
+    loadBar();
+  })();
+  </script>
 </body>
 </html>
