@@ -125,8 +125,9 @@
     </button>
   </div>
 
-  <!-- Shield Privacy Panel -->
-  <div id="shield-panel" style="display:none;position:fixed;top:84px;right:8px;z-index:9999;width:320px;background:var(--glass-bg);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid var(--glass-border);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden;">
+  <!-- Shield Privacy Panel — centered modal overlay -->
+  <div id="shield-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:10000;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);">
+  <div id="shield-panel" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;background:var(--glass-bg);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid var(--glass-border);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden;">
     <div style="padding:16px 18px 12px;border-bottom:1px solid var(--border);">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
         <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
@@ -134,7 +135,10 @@
           <path d="M6 8l1.5 1.5L10 6" stroke="var(--accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <span style="font-size:14px;font-weight:600;color:var(--text-primary);">Privacy Shield</span>
-        <span id="shield-panel-site" style="font-size:11px;color:var(--text-muted);margin-left:auto;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        <span id="shield-panel-site" style="font-size:11px;color:var(--text-muted);margin-left:auto;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        <button id="shield-close-btn" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;display:flex;align-items:center;transition:color 0.15s;margin-left:4px;" title="Close">
+          <svg width="14" height="14" viewBox="0 0 14 14"><path d="M4 4l6 6M10 4l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
       </div>
 
       <!-- Stats row -->
@@ -222,6 +226,7 @@
         Status: <span id="proxy-status-text" style="color:#22c55e;">Direct connection</span>
       </div>
     </div>
+  </div>
   </div>
 
   <!-- Context menu for bookmarks -->
@@ -665,8 +670,10 @@
   <!-- Shield Privacy Panel logic -->
   <script>
   (function() {
+    var overlay = document.getElementById('shield-overlay');
     var panel = document.getElementById('shield-panel');
     var shieldBtn = document.getElementById('shield-btn');
+    var shieldCloseBtn = document.getElementById('shield-close-btn');
     var shieldCount = document.getElementById('shield-count');
     var adsCount = document.getElementById('shield-ads-count');
     var trackersCount = document.getElementById('shield-trackers-count');
@@ -689,15 +696,21 @@
       try { return new URL(url).hostname; } catch { return ''; }
     }
 
-    function togglePanel() {
-      panelVisible = !panelVisible;
-      panel.style.display = panelVisible ? 'block' : 'none';
-      if (panelVisible) refreshPanel();
+    function showPanel() {
+      if (panelVisible) return;
+      panelVisible = true;
+      try { astra.chrome.expandFull(); } catch(err) { console.error('[Shield] expand error:', err); }
+      setTimeout(function() {
+        overlay.style.display = 'block';
+        refreshPanel();
+      }, 100);
     }
 
     function hidePanel() {
+      if (!panelVisible) return;
       panelVisible = false;
-      panel.style.display = 'none';
+      overlay.style.display = 'none';
+      try { astra.chrome.restoreSize(); } catch(err) { console.error('[Shield] restore error:', err); }
     }
 
     async function refreshPanel() {
@@ -749,17 +762,27 @@
       }
     }
 
-    // Shield button click
+    // Shield button click — open modal
     shieldBtn.addEventListener('click', function(e) {
       e.stopPropagation();
-      togglePanel();
+      showPanel();
     });
 
-    // Close panel on outside click
-    document.addEventListener('click', function(e) {
-      if (panelVisible && !panel.contains(e.target) && e.target !== shieldBtn) {
+    // Close button in panel header
+    shieldCloseBtn.addEventListener('click', function() {
+      hidePanel();
+    });
+
+    // Close panel on overlay click (outside the panel)
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) {
         hidePanel();
       }
+    });
+
+    // Escape key closes panel
+    overlay.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { hidePanel(); }
     });
 
     // Ad blocker per-site toggle
