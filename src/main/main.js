@@ -8,7 +8,7 @@ const { initAdBlocker } = require('./privacy/ad-blocker');
 const { initHttpsUpgrade } = require('./privacy/https-upgrade');
 const downloadManager = require('./download-manager');
 const sessionManager = require('./session-manager');
-const chromeImport = require('./chrome-import');
+const browserImport = require('./browser-import');
 const proxyManager = require('./privacy/proxy-manager');
 const autoUpdaterModule = require('./auto-updater');
 
@@ -110,18 +110,20 @@ app.whenReady().then(async () => {
       tabManager.createTab();
     }
 
-    // Auto-import Chrome data on first launch
-    if (chromeImport.shouldAutoImport()) {
-      console.log('[Astra] First launch detected — importing Chrome data...');
-      try {
-        const result = await chromeImport.runImport();
-        if (result.bookmarks > 0 || result.history > 0 || result.passwords > 0) {
-          console.log(`[Astra] Imported ${result.bookmarks} bookmarks, ${result.history} history, ${result.passwords || 0} passwords`);
-          // Refresh the bookmarks bar in the chrome view
-          chromeView.webContents.send('bookmarks:refresh');
+    // Auto-import browser data on first launch
+    if (browserImport.shouldAutoImport()) {
+      const bestBrowser = browserImport.getAutoImportBrowser();
+      if (bestBrowser) {
+        console.log(`[Astra] First launch — importing from ${bestBrowser}...`);
+        try {
+          const result = await browserImport.runImport(bestBrowser);
+          if (result.bookmarks > 0 || result.history > 0 || result.passwords > 0) {
+            console.log(`[Astra] Imported ${result.bookmarks} bookmarks, ${result.history} history, ${result.passwords || 0} passwords`);
+            chromeView.webContents.send('bookmarks:refresh');
+          }
+        } catch (err) {
+          console.error('[Astra] Browser import error:', err);
         }
-      } catch (err) {
-        console.error('[Astra] Chrome import error:', err);
       }
     }
   });

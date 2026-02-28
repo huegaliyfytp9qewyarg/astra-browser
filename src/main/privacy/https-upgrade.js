@@ -1,9 +1,30 @@
-const { session } = require('electron');
+const { session, app } = require('electron');
+const path = require('path');
+const fs = require('fs');
 
 let enabled = true;
 const httpsBrokenDomains = new Set();
+const statePath = () => path.join(app.getPath('userData'), 'privacy-state.json');
+
+function loadState() {
+  try {
+    const data = JSON.parse(fs.readFileSync(statePath(), 'utf8'));
+    if (typeof data.httpsUpgradeEnabled === 'boolean') enabled = data.httpsUpgradeEnabled;
+  } catch { /* first run, defaults to true */ }
+}
+
+function saveState() {
+  try {
+    let data = {};
+    try { data = JSON.parse(fs.readFileSync(statePath(), 'utf8')); } catch { /* ignore */ }
+    data.httpsUpgradeEnabled = enabled;
+    fs.writeFileSync(statePath(), JSON.stringify(data), 'utf8');
+  } catch { /* ignore */ }
+}
 
 function initHttpsUpgrade() {
+  loadState();
+
   session.defaultSession.webRequest.onBeforeRequest(
     { urls: ['http://*/*'] },
     (details, callback) => {
@@ -53,6 +74,7 @@ function isEnabled() {
 
 function toggle() {
   enabled = !enabled;
+  saveState();
   return enabled;
 }
 

@@ -9,6 +9,7 @@ let blockedAds = 0;
 let blockedTrackers = 0;
 let siteWhitelist = new Set();
 const whitelistPath = () => path.join(app.getPath('userData'), 'ad-whitelist.json');
+const statePath = () => path.join(app.getPath('userData'), 'privacy-state.json');
 
 // Known tracker domains (subset for classification)
 const TRACKER_PATTERNS = [
@@ -35,6 +36,23 @@ function saveWhitelist() {
   } catch { /* ignore */ }
 }
 
+function loadState() {
+  try {
+    const data = JSON.parse(fs.readFileSync(statePath(), 'utf8'));
+    if (typeof data.adBlockEnabled === 'boolean') enabled = data.adBlockEnabled;
+  } catch { /* first run, defaults to true */ }
+}
+
+function saveState() {
+  try {
+    // Read existing file to preserve other keys (e.g. httpsUpgradeEnabled)
+    let data = {};
+    try { data = JSON.parse(fs.readFileSync(statePath(), 'utf8')); } catch { /* ignore */ }
+    data.adBlockEnabled = enabled;
+    fs.writeFileSync(statePath(), JSON.stringify(data), 'utf8');
+  } catch { /* ignore */ }
+}
+
 function isTrackerUrl(url) {
   const lower = url.toLowerCase();
   return TRACKER_PATTERNS.some((p) => lower.includes(p));
@@ -42,6 +60,7 @@ function isTrackerUrl(url) {
 
 async function initAdBlocker() {
   loadWhitelist();
+  loadState();
 
   try {
     const { ElectronBlocker } = await import('@ghostery/adblocker-electron');
@@ -55,7 +74,10 @@ async function initAdBlocker() {
       write: fs.promises.writeFile,
     });
 
-    blocker.enableBlockingInSession(session.defaultSession);
+    // Apply saved state — if user had it disabled, don't enable
+    if (enabled) {
+      blocker.enableBlockingInSession(session.defaultSession);
+    }
 
     // Track blocked requests — classify as ad or tracker
     blocker.on('request-blocked', (request) => {
@@ -87,6 +109,7 @@ function toggle() {
     blocker.enableBlockingInSession(session.defaultSession);
     enabled = true;
   }
+  saveState();
   return enabled;
 }
 

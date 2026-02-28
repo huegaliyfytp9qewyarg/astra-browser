@@ -75,7 +75,8 @@ contextBridge.exposeInMainWorld('astra', {
   },
 
   import: {
-    chrome: () => ipcRenderer.invoke('import:chrome'),
+    browser: (browserKey) => ipcRenderer.invoke('import:browser', browserKey),
+    getAvailable: () => ipcRenderer.invoke('import:getAvailable'),
   },
 
   menu: {

@@ -57,26 +57,45 @@ function buildAppMenu() {
         },
         { type: 'separator' },
         {
-          label: 'Import from Chrome...',
+          label: 'Import from Browser...',
           click: async () => {
-            const chromeImport = require('./chrome-import');
+            const browserImport = require('./browser-import');
             const { dialog } = require('electron');
             const win = wm().getMainWindow();
+            const available = browserImport.getAvailableBrowsers();
+            if (available.length === 0) {
+              dialog.showMessageBox(win, {
+                type: 'info',
+                title: 'No Browsers Found',
+                message: 'No supported browsers were detected on this system.',
+                buttons: ['OK'],
+              });
+              return;
+            }
+            const { response } = await dialog.showMessageBox(win, {
+              type: 'question',
+              title: 'Import Browser Data',
+              message: 'Which browser would you like to import from?',
+              buttons: [...available.map(b => b.name), 'Cancel'],
+              cancelId: available.length,
+            });
+            if (response >= available.length) return;
+            const chosen = available[response];
             try {
-              const result = await chromeImport.runImport();
+              const result = await browserImport.runImport(chosen.id);
               const chrome = wm().getChromeView();
               if (chrome) chrome.webContents.send('bookmarks:refresh');
               dialog.showMessageBox(win, {
                 type: 'info',
-                title: 'Chrome Import Complete',
-                message: `Imported ${result.bookmarks} bookmarks and ${result.history} history entries from Chrome.`,
+                title: 'Import Complete',
+                message: `Imported ${result.bookmarks} bookmarks, ${result.history} history entries, and ${result.passwords || 0} passwords from ${chosen.name}.`,
                 buttons: ['OK'],
               });
             } catch (err) {
               dialog.showMessageBox(win, {
                 type: 'error',
                 title: 'Import Failed',
-                message: `Could not import Chrome data: ${err.message}`,
+                message: `Could not import data from ${chosen.name}: ${err.message}`,
                 buttons: ['OK'],
               });
             }
