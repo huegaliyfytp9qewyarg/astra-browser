@@ -22,9 +22,9 @@ mac:
     - zip
 
 win:
+  sign: false
   target:
-    - nsis
-    - portable
+    - dir
 
 nsis:
   oneClick: false

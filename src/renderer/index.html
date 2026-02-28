@@ -58,6 +58,14 @@
         </svg>
       </span>
       <input id="address-bar" type="text" placeholder="Search with Astra or enter URL" spellcheck="false" autocomplete="off">
+      <button id="bookmark-btn" title="Bookmark this page (Ctrl+D)">
+        <svg id="bookmark-icon-empty" width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M4 2h8a1 1 0 0 1 1 1v11.5l-5-3-5 3V3a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.2" fill="none"/>
+        </svg>
+        <svg id="bookmark-icon-filled" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none">
+          <path d="M4 2h8a1 1 0 0 1 1 1v11.5l-5-3-5 3V3a1 1 0 0 1 1-1z" stroke="var(--accent)" stroke-width="1.2" fill="var(--accent)"/>
+        </svg>
+      </button>
     </div>
 
     <button id="shield-btn" class="nav-btn" title="Privacy Shield">
@@ -66,15 +74,6 @@
         <path d="M6 8l1.5 1.5L10 6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       <span id="shield-count" class="badge hidden">0</span>
-    </button>
-
-    <button id="bookmark-btn" class="nav-btn" title="Bookmark this page (Ctrl+D)">
-      <svg id="bookmark-icon-empty" width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <path d="M4 2h8a1 1 0 0 1 1 1v11.5l-5-3-5 3V3a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.2" fill="none"/>
-      </svg>
-      <svg id="bookmark-icon-filled" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none">
-        <path d="M4 2h8a1 1 0 0 1 1 1v11.5l-5-3-5 3V3a1 1 0 0 1 1-1z" stroke="var(--accent)" stroke-width="1.2" fill="var(--accent)"/>
-      </svg>
     </button>
   </div>
 
