@@ -26,7 +26,7 @@ mac:
 win:
   sign: false
   icon: assets/icon.ico
-  requestedExecutionLevel: requireAdministrator
+  requestedExecutionLevel: asInvoker
   verifyUpdateCodeSignature: false
   target:
     - nsis
