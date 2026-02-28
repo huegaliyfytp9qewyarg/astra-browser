@@ -127,29 +127,62 @@ function registerIpcHandlers() {
 
   // Bookmarks
   ipcMain.handle(IPC.BOOKMARKS_ADD, (_e, data) => {
-    const bookmarksDb = require('./storage/bookmarks-db');
-    const parentId = data.parentId || bookmarksDb.getBookmarksBarId();
-    return bookmarksDb.addBookmark(parentId, data.title, data.url, data.favicon);
+    try {
+      const bookmarksDb = require('./storage/bookmarks-db');
+      let parentId = data.parentId || bookmarksDb.getBookmarksBarId();
+      // If Bookmarks Bar folder doesn't exist yet, create it
+      if (!parentId) {
+        const { getDatabase } = require('./storage/database');
+        const db = getDatabase();
+        const now = Date.now();
+        const result = db.prepare('INSERT INTO bookmarks (parent_id, type, title, url, position, created_at, updated_at) VALUES (NULL, ?, ?, NULL, 0, ?, ?)').run('folder', 'Bookmarks Bar', now, now);
+        parentId = result.lastInsertRowid;
+      }
+      return bookmarksDb.addBookmark(parentId, data.title, data.url, data.favicon);
+    } catch (err) {
+      console.error('[Bookmarks] add error:', err);
+      throw err;
+    }
   });
 
   ipcMain.handle(IPC.BOOKMARKS_REMOVE, (_e, url) => {
-    const bookmarksDb = require('./storage/bookmarks-db');
-    bookmarksDb.removeByUrl(url);
+    try {
+      const bookmarksDb = require('./storage/bookmarks-db');
+      bookmarksDb.removeByUrl(url);
+    } catch (err) {
+      console.error('[Bookmarks] remove error:', err);
+      throw err;
+    }
   });
 
   ipcMain.handle(IPC.BOOKMARKS_GET_BAR, () => {
-    const bookmarksDb = require('./storage/bookmarks-db');
-    return bookmarksDb.getBookmarksBar();
+    try {
+      const bookmarksDb = require('./storage/bookmarks-db');
+      return bookmarksDb.getBookmarksBar();
+    } catch (err) {
+      console.error('[Bookmarks] getBar error:', err);
+      return [];
+    }
   });
 
   ipcMain.handle(IPC.BOOKMARKS_GET_ALL, () => {
-    const bookmarksDb = require('./storage/bookmarks-db');
-    return bookmarksDb.getAll();
+    try {
+      const bookmarksDb = require('./storage/bookmarks-db');
+      return bookmarksDb.getAll();
+    } catch (err) {
+      console.error('[Bookmarks] getAll error:', err);
+      return [];
+    }
   });
 
   ipcMain.handle(IPC.BOOKMARKS_IS_BOOKMARKED, (_e, url) => {
-    const bookmarksDb = require('./storage/bookmarks-db');
-    return bookmarksDb.isBookmarked(url);
+    try {
+      const bookmarksDb = require('./storage/bookmarks-db');
+      return bookmarksDb.isBookmarked(url);
+    } catch (err) {
+      console.error('[Bookmarks] isBookmarked error:', err);
+      return false;
+    }
   });
 
   // Settings

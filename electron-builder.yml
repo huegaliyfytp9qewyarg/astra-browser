@@ -24,7 +24,7 @@ mac:
 win:
   sign: false
   target:
-    - dir
+    - portable
 
 nsis:
   oneClick: false

@@ -3,6 +3,7 @@ const bookmarksItems = document.getElementById('bookmarks-items');
 const bookmarkBtn = document.getElementById('bookmark-btn');
 const bookmarkIconEmpty = document.getElementById('bookmark-icon-empty');
 const bookmarkIconFilled = document.getElementById('bookmark-icon-filled');
+const addressBar = document.getElementById('address-bar');
 
 let currentPageUrl = '';
 let currentPageTitle = '';
@@ -18,7 +19,7 @@ astra.nav.onStateChanged(async (state) => {
   currentPageTitle = state.title || '';
 
   // Don't show bookmark star for internal pages
-  if (currentPageUrl.startsWith('astra://')) {
+  if (!currentPageUrl || currentPageUrl.startsWith('astra://')) {
     bookmarkBtn.style.display = 'none';
     return;
   }
@@ -28,27 +29,42 @@ astra.nav.onStateChanged(async (state) => {
   try {
     isCurrentBookmarked = await astra.bookmarks.isBookmarked(currentPageUrl);
     updateBookmarkIcon();
-  } catch { /* ignore */ }
+  } catch (err) {
+    console.error('[Bookmarks] isBookmarked check failed:', err);
+  }
 });
 
 // Bookmark button click — toggle bookmark
-bookmarkBtn.addEventListener('click', async () => {
-  if (!currentPageUrl || currentPageUrl.startsWith('astra://')) return;
+bookmarkBtn.addEventListener('click', async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
 
-  if (isCurrentBookmarked) {
-    await astra.bookmarks.remove(currentPageUrl);
-    isCurrentBookmarked = false;
-  } else {
-    await astra.bookmarks.add({
-      title: currentPageTitle || currentPageUrl,
-      url: currentPageUrl,
-      favicon: currentPageFavicon || null,
-    });
-    isCurrentBookmarked = true;
+  // Fallback: read URL from address bar if state hasn't been set
+  let url = currentPageUrl;
+  if (!url && addressBar) {
+    url = addressBar.value;
   }
 
-  updateBookmarkIcon();
-  loadBookmarksBar();
+  if (!url || url.startsWith('astra://')) return;
+
+  try {
+    if (isCurrentBookmarked) {
+      await astra.bookmarks.remove(url);
+      isCurrentBookmarked = false;
+    } else {
+      await astra.bookmarks.add({
+        title: currentPageTitle || url,
+        url: url,
+        favicon: currentPageFavicon || null,
+      });
+      isCurrentBookmarked = true;
+    }
+
+    updateBookmarkIcon();
+    await loadBookmarksBar();
+  } catch (err) {
+    console.error('[Bookmarks] toggle bookmark failed:', err);
+  }
 });
 
 // Ctrl+D to bookmark
@@ -73,7 +89,8 @@ async function loadBookmarksBar() {
   try {
     const bookmarks = await astra.bookmarks.getBar();
     renderBookmarksBar(bookmarks);
-  } catch {
+  } catch (err) {
+    console.error('[Bookmarks] loadBookmarksBar failed:', err);
     bookmarksItems.innerHTML = '<span class="bookmarks-empty">Bookmarks will appear here</span>';
   }
 }
