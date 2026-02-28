@@ -77,6 +77,11 @@ function updateLayout() {
 
 function expandChrome() {
   chromeExpanded = true;
+  // Bring chrome view to front (above tab views) so the dialog is visible
+  if (mainWindow && chromeView) {
+    mainWindow.contentView.removeChildView(chromeView);
+    mainWindow.contentView.addChildView(chromeView);
+  }
   updateLayout();
 }
 

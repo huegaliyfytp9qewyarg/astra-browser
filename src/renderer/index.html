@@ -270,10 +270,13 @@
       editTitle.value = ctxBookmark.title || '';
       editUrl.value = ctxBookmark.url || '';
       ctxMenu.style.display = 'none';
-      astra.chrome.expandFull().then(function() {
+      // Expand chrome view to full window so dialog can center on screen
+      try { astra.chrome.expandFull(); } catch(err) { console.error('[BM] expand error:', err); }
+      // Give the view time to resize, then show dialog
+      setTimeout(function() {
         editOverlay.style.display = 'block';
         setTimeout(function() { editTitle.focus(); editTitle.select(); }, 50);
-      });
+      }, 100);
     });
 
     // Remove action from context menu
@@ -291,7 +294,7 @@
     function closeEditDialog() {
       editOverlay.style.display = 'none';
       editingBookmarkUrl = null;
-      astra.chrome.restoreSize();
+      try { astra.chrome.restoreSize(); } catch(err) { console.error('[BM] restore error:', err); }
     }
 
     // Edit dialog — Done button (save)
