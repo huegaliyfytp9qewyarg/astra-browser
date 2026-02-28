@@ -88,17 +88,18 @@
     <div class="bm-ctx-item" id="bm-ctx-remove" style="padding:6px 14px;cursor:pointer;font-size:12px;color:#ef4444;transition:background 0.1s;">Remove</div>
   </div>
 
-  <!-- Edit bookmark dialog -->
-  <div id="bm-edit-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;">
-    <div style="background:var(--bg-toolbar);border:1px solid var(--border);border-radius:10px;padding:16px;width:340px;box-shadow:0 8px 24px rgba(0,0,0,0.5);">
-      <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px;">Edit bookmark</div>
+  <!-- Edit bookmark dialog — centered on screen -->
+  <div id="bm-edit-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;">
+    <div id="bm-edit-dialog" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-toolbar);border:1px solid var(--border);border-radius:12px;padding:20px;width:380px;box-shadow:0 12px 32px rgba(0,0,0,0.6);">
+      <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:16px;">Edit bookmark</div>
       <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px;">Name</label>
-      <input id="bm-edit-title" type="text" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--address-bg);color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;margin-bottom:10px;">
+      <input id="bm-edit-title" type="text" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--address-bg);color:var(--text-primary);font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;">
       <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px;">URL</label>
-      <input id="bm-edit-url" type="text" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--address-bg);color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;margin-bottom:14px;">
+      <input id="bm-edit-url" type="text" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--address-bg);color:var(--text-primary);font-size:13px;font-family:inherit;outline:none;margin-bottom:16px;">
       <div style="display:flex;justify-content:flex-end;gap:8px;">
-        <button id="bm-edit-cancel" style="padding:5px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-secondary);cursor:pointer;font-size:12px;font-family:inherit;">Cancel</button>
-        <button id="bm-edit-save" style="padding:5px 14px;border:none;border-radius:6px;background:var(--accent);color:white;cursor:pointer;font-size:12px;font-family:inherit;">Save</button>
+        <button id="bm-edit-remove" style="padding:6px 16px;border:1px solid #ef4444;border-radius:6px;background:transparent;color:#ef4444;cursor:pointer;font-size:12px;font-family:inherit;margin-right:auto;">Remove</button>
+        <button id="bm-edit-cancel" style="padding:6px 16px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-secondary);cursor:pointer;font-size:12px;font-family:inherit;">Cancel</button>
+        <button id="bm-edit-save" style="padding:6px 16px;border:none;border-radius:6px;background:var(--accent);color:white;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600;">Done</button>
       </div>
     </div>
   </div>
@@ -124,12 +125,14 @@
     var editUrl = document.getElementById('bm-edit-url');
     var editCancel = document.getElementById('bm-edit-cancel');
     var editSave = document.getElementById('bm-edit-save');
+    var editRemove = document.getElementById('bm-edit-remove');
 
     var pageUrl = '';
     var pageTitle = '';
     var pageFavicon = '';
     var isBm = false;
     var ctxBookmark = null; // Currently right-clicked bookmark
+    var editingBookmarkUrl = null; // URL of bookmark being edited (persists after context menu closes)
 
     // Bookmark star button
     if (bmBtn) {
@@ -251,19 +254,19 @@
     ctxRemove.addEventListener('mouseenter', function() { this.style.background = 'var(--btn-hover)'; });
     ctxRemove.addEventListener('mouseleave', function() { this.style.background = ''; });
 
-    // Edit action
+    // Edit action — save bookmark info before hiding context menu
     ctxEdit.addEventListener('click', function(e) {
       e.stopPropagation();
       if (!ctxBookmark) return;
+      editingBookmarkUrl = ctxBookmark.url;
       editTitle.value = ctxBookmark.title || '';
       editUrl.value = ctxBookmark.url || '';
-      editOverlay.style.display = 'flex';
-      hideContextMenu();
-      editTitle.focus();
-      editTitle.select();
+      ctxMenu.style.display = 'none';
+      editOverlay.style.display = 'block';
+      setTimeout(function() { editTitle.focus(); editTitle.select(); }, 50);
     });
 
-    // Remove action
+    // Remove action from context menu
     ctxRemove.addEventListener('click', function(e) {
       e.stopPropagation();
       if (!ctxBookmark || !ctxBookmark.url) return;
@@ -275,33 +278,49 @@
       hideContextMenu();
     });
 
-    // Edit dialog save
+    // Edit dialog — Done button (save)
     editSave.addEventListener('click', function() {
-      if (!ctxBookmark) return;
-      var oldUrl = ctxBookmark.url;
+      if (!editingBookmarkUrl) return;
       var newTitle = editTitle.value.trim();
       var newUrl = editUrl.value.trim();
       if (!newTitle || !newUrl) return;
-      astra.bookmarks.update(oldUrl, { title: newTitle, url: newUrl }).then(function() {
+      astra.bookmarks.update(editingBookmarkUrl, { title: newTitle, url: newUrl }).then(function() {
         editOverlay.style.display = 'none';
-        ctxBookmark = null;
+        editingBookmarkUrl = null;
         loadBar();
-        // Update star if current page URL changed
-        if (oldUrl === pageUrl && newUrl !== pageUrl) {
+        if (editingBookmarkUrl === pageUrl && newUrl !== pageUrl) {
           isBm = false; updateIcon();
         }
       });
     });
 
-    // Edit dialog cancel
-    editCancel.addEventListener('click', function() {
-      editOverlay.style.display = 'none';
-      ctxBookmark = null;
+    // Edit dialog — Remove button
+    editRemove.addEventListener('click', function() {
+      if (!editingBookmarkUrl) return;
+      var removedUrl = editingBookmarkUrl;
+      astra.bookmarks.remove(removedUrl).then(function() {
+        editOverlay.style.display = 'none';
+        editingBookmarkUrl = null;
+        loadBar();
+        if (removedUrl === pageUrl) { isBm = false; updateIcon(); }
+      });
     });
 
-    // Close edit dialog on Escape, save on Enter
+    // Edit dialog — Cancel button
+    editCancel.addEventListener('click', function() {
+      editOverlay.style.display = 'none';
+      editingBookmarkUrl = null;
+    });
+
+    // Close edit dialog on overlay click, Escape to cancel, Enter to save
+    editOverlay.addEventListener('click', function(e) {
+      if (e.target === editOverlay) {
+        editOverlay.style.display = 'none';
+        editingBookmarkUrl = null;
+      }
+    });
     editOverlay.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') { editOverlay.style.display = 'none'; ctxBookmark = null; }
+      if (e.key === 'Escape') { editOverlay.style.display = 'none'; editingBookmarkUrl = null; }
       if (e.key === 'Enter') { editSave.click(); }
     });
 
