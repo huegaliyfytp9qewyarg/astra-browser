@@ -560,3 +560,90 @@ html, body {
   background: var(--btn-hover);
   color: var(--text-primary);
 }
+
+/* Shield Privacy Panel */
+.shield-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.shield-row:last-child {
+  border-bottom: none;
+}
+
+.shield-toggle {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.shield-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.shield-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #4b5563;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.shield-slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.shield-toggle input:checked + .shield-slider {
+  background: #22c55e;
+}
+
+.shield-toggle input:checked + .shield-slider::before {
+  transform: translateX(16px);
+}
+
+.shield-proxy-btn {
+  flex: 1;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--address-bg);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.shield-proxy-btn:hover {
+  background: var(--btn-hover);
+  color: var(--text-primary);
+}
+
+.shield-proxy-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+#shield-btn.protected svg path {
+  stroke: #22c55e;
+}

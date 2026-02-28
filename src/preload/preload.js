@@ -44,6 +44,11 @@ contextBridge.exposeInMainWorld('astra', {
     getStatus: () => ipcRenderer.invoke('privacy:getStatus'),
     toggleAds: () => ipcRenderer.invoke('privacy:toggleAds'),
     toggleHttps: () => ipcRenderer.invoke('privacy:toggleHttps'),
+    isWhitelisted: (domain) => ipcRenderer.invoke('privacy:isWhitelisted', domain),
+    whitelistAdd: (domain) => ipcRenderer.invoke('privacy:whitelistAdd', domain),
+    whitelistRemove: (domain) => ipcRenderer.invoke('privacy:whitelistRemove', domain),
+    setProxy: (mode, details) => ipcRenderer.invoke('privacy:setProxy', mode, details),
+    getProxy: () => ipcRenderer.invoke('privacy:getProxy'),
   },
 
   window: {

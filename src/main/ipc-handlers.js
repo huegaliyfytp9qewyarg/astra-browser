@@ -88,10 +88,15 @@ function registerIpcHandlers() {
   ipcMain.handle(IPC.PRIVACY_GET_STATUS, () => {
     const adBlocker = require('./privacy/ad-blocker');
     const httpsUpgrade = require('./privacy/https-upgrade');
+    const proxyManager = require('./privacy/proxy-manager');
     return {
       adBlockEnabled: adBlocker.isEnabled(),
       httpsUpgradeEnabled: httpsUpgrade.isEnabled(),
-      adsBlocked: adBlocker.getBlockedCount(),
+      adsBlocked: adBlocker.getBlockedAds(),
+      trackersBlocked: adBlocker.getBlockedTrackers(),
+      totalBlocked: adBlocker.getBlockedCount(),
+      proxyMode: proxyManager.getMode(),
+      proxyConfig: proxyManager.getConfig(),
     };
   });
 
@@ -103,6 +108,33 @@ function registerIpcHandlers() {
   ipcMain.handle(IPC.PRIVACY_TOGGLE_HTTPS, () => {
     const httpsUpgrade = require('./privacy/https-upgrade');
     return httpsUpgrade.toggle();
+  });
+
+  // Per-site ad blocker whitelist
+  ipcMain.handle('privacy:isWhitelisted', (_e, domain) => {
+    const adBlocker = require('./privacy/ad-blocker');
+    return adBlocker.isWhitelisted(domain);
+  });
+
+  ipcMain.handle('privacy:whitelistAdd', (_e, domain) => {
+    const adBlocker = require('./privacy/ad-blocker');
+    adBlocker.addToWhitelist(domain);
+  });
+
+  ipcMain.handle('privacy:whitelistRemove', (_e, domain) => {
+    const adBlocker = require('./privacy/ad-blocker');
+    adBlocker.removeFromWhitelist(domain);
+  });
+
+  // Proxy / VPN
+  ipcMain.handle('privacy:setProxy', async (_e, mode, details) => {
+    const proxyManager = require('./privacy/proxy-manager');
+    return await proxyManager.setProxy(mode, details);
+  });
+
+  ipcMain.handle('privacy:getProxy', () => {
+    const proxyManager = require('./privacy/proxy-manager');
+    return proxyManager.getConfig();
   });
 
   // History

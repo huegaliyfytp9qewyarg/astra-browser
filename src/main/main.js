@@ -9,6 +9,7 @@ const { initHttpsUpgrade } = require('./privacy/https-upgrade');
 const downloadManager = require('./download-manager');
 const sessionManager = require('./session-manager');
 const chromeImport = require('./chrome-import');
+const proxyManager = require('./privacy/proxy-manager');
 
 // ── Privacy & Security: Chromium command-line switches ──
 // Disable safe browsing warnings (no "dangerous file" prompts)
@@ -23,6 +24,10 @@ app.commandLine.appendSwitch('disable-component-update');
 app.commandLine.appendSwitch('disable-sync');
 // Enable smooth scrolling
 app.commandLine.appendSwitch('enable-smooth-scrolling');
+// DNS-over-HTTPS via Cloudflare for private DNS resolution
+app.commandLine.appendSwitch('enable-features', 'DnsOverHttps');
+app.commandLine.appendSwitch('dns-over-https-mode', 'automatic');
+app.commandLine.appendSwitch('dns-over-https-templates', 'https://cloudflare-dns.com/dns-query');
 
 // Register astra:// as a privileged scheme before app is ready
 protocol.registerSchemesAsPrivileged([
@@ -67,6 +72,9 @@ app.whenReady().then(async () => {
 
   // Initialize HTTPS upgrade (instant, sync)
   initHttpsUpgrade();
+
+  // Initialize proxy manager (loads saved config)
+  proxyManager.init();
 
   // Initialize download manager (instant)
   downloadManager.init();
