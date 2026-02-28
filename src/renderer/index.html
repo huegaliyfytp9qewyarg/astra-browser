@@ -113,6 +113,18 @@
     </button>
   </div>
 
+  <!-- Update notification bar -->
+  <div id="update-bar" style="display:none;align-items:center;height:32px;background:linear-gradient(90deg,#6366f1,#8b5cf6);padding:0 12px;gap:8px;justify-content:center;">
+    <span id="update-message" style="font-size:12px;color:white;font-weight:500;"></span>
+    <div id="update-progress-wrap" style="display:none;width:120px;height:4px;background:rgba(255,255,255,0.25);border-radius:2px;overflow:hidden;">
+      <div id="update-progress-fill" style="height:100%;background:white;border-radius:2px;transition:width 0.3s;width:0%;"></div>
+    </div>
+    <button id="update-action-btn" style="display:none;padding:3px 12px;border:1px solid rgba(255,255,255,0.5);border-radius:4px;background:rgba(255,255,255,0.15);color:white;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;transition:background 0.15s;">Restart & Update</button>
+    <button id="update-dismiss-btn" style="padding:2px;border:none;background:transparent;color:rgba(255,255,255,0.7);cursor:pointer;display:flex;align-items:center;">
+      <svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5"/></svg>
+    </button>
+  </div>
+
   <!-- Shield Privacy Panel -->
   <div id="shield-panel" style="display:none;position:fixed;top:80px;right:8px;z-index:9999;width:320px;background:var(--bg-toolbar);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.5);overflow:hidden;">
     <div style="padding:14px 16px 10px;border-bottom:1px solid var(--border);">
@@ -596,6 +608,60 @@
     astra.events.onBookmarksRefresh(function() {
       // The loadBar function is in the bookmark IIFE, trigger it by dispatching a custom event
       document.dispatchEvent(new Event('astra:refreshBookmarks'));
+    });
+  })();
+  </script>
+
+  <!-- Auto-update notification logic -->
+  <script>
+  (function() {
+    var bar = document.getElementById('update-bar');
+    var msg = document.getElementById('update-message');
+    var progressWrap = document.getElementById('update-progress-wrap');
+    var progressFill = document.getElementById('update-progress-fill');
+    var actionBtn = document.getElementById('update-action-btn');
+    var dismissBtn = document.getElementById('update-dismiss-btn');
+
+    var UPDATE_BAR_HEIGHT = 32;
+
+    function showBar(text) {
+      msg.textContent = text;
+      bar.style.display = 'flex';
+      astra.updater.setBarHeight(UPDATE_BAR_HEIGHT);
+    }
+
+    function hideBar() {
+      bar.style.display = 'none';
+      astra.updater.setBarHeight(0);
+    }
+
+    astra.updater.onAvailable(function(data) {
+      showBar('Astra v' + data.version + ' is downloading...');
+      progressWrap.style.display = 'block';
+      actionBtn.style.display = 'none';
+    });
+
+    astra.updater.onProgress(function(data) {
+      progressFill.style.width = data.percent + '%';
+      msg.textContent = 'Downloading update... ' + data.percent + '%';
+    });
+
+    astra.updater.onDownloaded(function(data) {
+      showBar('Astra v' + data.version + ' is ready to install!');
+      progressWrap.style.display = 'none';
+      actionBtn.style.display = 'inline-block';
+    });
+
+    astra.updater.onError(function() {
+      hideBar();
+    });
+
+    actionBtn.addEventListener('click', function() {
+      astra.updater.install();
+    });
+
+    dismissBtn.addEventListener('click', function() {
+      hideBar();
     });
   })();
   </script>

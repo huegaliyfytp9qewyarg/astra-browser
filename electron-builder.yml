@@ -27,12 +27,18 @@ win:
   sign: false
   icon: assets/icon.ico
   requestedExecutionLevel: asInvoker
+  verifyUpdateCodeSignature: false
   target:
-    - portable
+    - nsis
 
 nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Astra
+  runAfterFinish: true
 
 linux:
   category: Network
@@ -40,4 +46,7 @@ linux:
     - AppImage
     - deb
 
-publish: null
+publish:
+  provider: github
+  owner: huegaliyfytp9qewyarg
+  repo: astra-browser

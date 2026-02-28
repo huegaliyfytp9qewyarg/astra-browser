@@ -89,6 +89,19 @@ contextBridge.exposeInMainWorld('astra', {
     remove: (domain, username) => ipcRenderer.invoke('passwords:remove', domain, username),
   },
 
+  updater: {
+    check: () => ipcRenderer.invoke('updater:check'),
+    install: () => ipcRenderer.invoke('updater:install'),
+    getStatus: () => ipcRenderer.invoke('updater:getStatus'),
+    setBarHeight: (h) => ipcRenderer.invoke('updater:setBarHeight', h),
+    onChecking: (cb) => { ipcRenderer.on('update:checking', () => cb()); },
+    onAvailable: (cb) => { ipcRenderer.on('update:available', (_e, data) => cb(data)); },
+    onNotAvailable: (cb) => { ipcRenderer.on('update:not-available', () => cb()); },
+    onProgress: (cb) => { ipcRenderer.on('update:progress', (_e, data) => cb(data)); },
+    onDownloaded: (cb) => { ipcRenderer.on('update:downloaded', (_e, data) => cb(data)); },
+    onError: (cb) => { ipcRenderer.on('update:error', (_e, data) => cb(data)); },
+  },
+
   events: {
     onAddressBarFocus: (cb) => { ipcRenderer.on('addressbar:focus', () => cb()); },
     onBookmarkToggle: (cb) => { ipcRenderer.on('bookmark:toggle', () => cb()); },

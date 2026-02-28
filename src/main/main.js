@@ -10,6 +10,7 @@ const downloadManager = require('./download-manager');
 const sessionManager = require('./session-manager');
 const chromeImport = require('./chrome-import');
 const proxyManager = require('./privacy/proxy-manager');
+const autoUpdaterModule = require('./auto-updater');
 
 // ── Privacy & Security: Chromium command-line switches ──
 // Disable safe browsing warnings (no "dangerous file" prompts)
@@ -94,6 +95,9 @@ app.whenReady().then(async () => {
   }).catch(err => {
     console.error('[Astra] Ad blocker init error:', err);
   });
+
+  // Initialize auto-updater (checks GitHub releases)
+  autoUpdaterModule.init();
 
   // ── Session restore + Chrome auto-import ──
   const chromeView = getChromeView();

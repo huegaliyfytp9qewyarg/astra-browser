@@ -2,7 +2,7 @@ const { ipcMain, Menu, dialog } = require('electron');
 const { IPC } = require('../shared/constants');
 const tabManager = require('./tab-manager');
 const navigation = require('./navigation');
-const { getMainWindow, expandChrome, restoreChrome, setDownloadsBarHeight, setFindBarHeight } = require('./window-manager');
+const { getMainWindow, expandChrome, restoreChrome, setDownloadsBarHeight, setFindBarHeight, setUpdateBarHeight } = require('./window-manager');
 const downloadManager = require('./download-manager');
 
 function registerIpcHandlers() {
@@ -257,6 +257,26 @@ function registerIpcHandlers() {
     } catch (err) {
       console.error('[Passwords] remove error:', err);
     }
+  });
+
+  // Auto-updater
+  ipcMain.handle('updater:check', () => {
+    const autoUpdater = require('./auto-updater');
+    autoUpdater.checkForUpdates();
+  });
+
+  ipcMain.handle('updater:install', () => {
+    const autoUpdater = require('./auto-updater');
+    autoUpdater.installUpdate();
+  });
+
+  ipcMain.handle('updater:getStatus', () => {
+    const autoUpdater = require('./auto-updater');
+    return autoUpdater.getStatus();
+  });
+
+  ipcMain.handle('updater:setBarHeight', (_e, h) => {
+    setUpdateBarHeight(h);
   });
 
   // Settings

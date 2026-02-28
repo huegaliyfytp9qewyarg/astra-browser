@@ -7,6 +7,7 @@ let chromeView = null;
 let chromeExpanded = false;
 let downloadsBarHeight = 0;
 let findBarHeight = 0;
+let updateBarHeight = 0;
 
 function createMainWindow() {
   mainWindow = new BaseWindow({
@@ -60,7 +61,7 @@ function updateLayout() {
   if (chromeExpanded) {
     chromeView.setBounds({ x: 0, y: 0, width, height });
   } else {
-    chromeView.setBounds({ x: 0, y: 0, width, height: CHROME_HEIGHT + findBarHeight + downloadsBarHeight });
+    chromeView.setBounds({ x: 0, y: 0, width, height: CHROME_HEIGHT + updateBarHeight + findBarHeight + downloadsBarHeight });
   }
 
   // Also resize the active tab
@@ -101,7 +102,7 @@ function setDownloadsBarHeight(h) {
 function getContentBounds() {
   if (!mainWindow) return { x: 0, y: CHROME_HEIGHT, width: 800, height: 520 };
   const { width, height } = mainWindow.getContentBounds();
-  const chromeH = CHROME_HEIGHT + findBarHeight + downloadsBarHeight;
+  const chromeH = CHROME_HEIGHT + updateBarHeight + findBarHeight + downloadsBarHeight;
   return {
     x: 0,
     y: chromeH,
@@ -115,6 +116,11 @@ function setFindBarHeight(h) {
   updateLayout();
 }
 
+function setUpdateBarHeight(h) {
+  updateBarHeight = h;
+  updateLayout();
+}
+
 module.exports = {
   createMainWindow,
   getMainWindow,
@@ -125,4 +131,5 @@ module.exports = {
   restoreChrome,
   setDownloadsBarHeight,
   setFindBarHeight,
+  setUpdateBarHeight,
 };
