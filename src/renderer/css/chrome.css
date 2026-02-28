@@ -301,6 +301,77 @@ html, body {
   display: none;
 }
 
+/* Bookmarks Bar */
+#bookmarks-bar {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  background: var(--bg-toolbar);
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+#bookmarks-items {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1;
+}
+
+#bookmarks-items::-webkit-scrollbar {
+  display: none;
+}
+
+.bookmark-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  max-width: 180px;
+}
+
+.bookmark-item:hover {
+  background: var(--btn-hover);
+  color: var(--text-primary);
+}
+
+.bookmark-item-favicon {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.bookmark-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmarks-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+
+/* Bookmark button star */
+#bookmark-btn {
+  position: relative;
+}
+
 /* Loading spinner for favicon */
 .favicon-spinner {
   width: 14px;

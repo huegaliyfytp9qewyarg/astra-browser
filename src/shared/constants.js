@@ -43,7 +43,7 @@ module.exports = {
     WINDOW_CLOSE: 'window:close',
   },
 
-  CHROME_HEIGHT: 80,
+  CHROME_HEIGHT: 108, // tab bar (36) + toolbar (44) + bookmarks bar (28)
   TAB_BAR_HEIGHT: 36,
   TOOLBAR_HEIGHT: 44,
   BOOKMARKS_BAR_HEIGHT: 28,

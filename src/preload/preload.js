@@ -31,6 +31,14 @@ contextBridge.exposeInMainWorld('astra', {
     query: (q) => ipcRenderer.invoke('search:query', q),
   },
 
+  bookmarks: {
+    add: (data) => ipcRenderer.invoke('bookmarks:add', data),
+    remove: (url) => ipcRenderer.invoke('bookmarks:remove', url),
+    getBar: () => ipcRenderer.invoke('bookmarks:getBar'),
+    getAll: () => ipcRenderer.invoke('bookmarks:getAll'),
+    isBookmarked: (url) => ipcRenderer.invoke('bookmarks:isBookmarked', url),
+  },
+
   privacy: {
     getStatus: () => ipcRenderer.invoke('privacy:getStatus'),
     toggleAds: () => ipcRenderer.invoke('privacy:toggleAds'),

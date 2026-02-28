@@ -67,9 +67,23 @@
       </svg>
       <span id="shield-count" class="badge hidden">0</span>
     </button>
+
+    <button id="bookmark-btn" class="nav-btn" title="Bookmark this page (Ctrl+D)">
+      <svg id="bookmark-icon-empty" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M4 2h8a1 1 0 0 1 1 1v11.5l-5-3-5 3V3a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.2" fill="none"/>
+      </svg>
+      <svg id="bookmark-icon-filled" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none">
+        <path d="M4 2h8a1 1 0 0 1 1 1v11.5l-5-3-5 3V3a1 1 0 0 1 1-1z" stroke="var(--accent)" stroke-width="1.2" fill="var(--accent)"/>
+      </svg>
+    </button>
+  </div>
+
+  <div id="bookmarks-bar">
+    <div id="bookmarks-items"></div>
   </div>
 
   <script src="js/chrome.js"></script>
   <script src="js/toolbar.js"></script>
+  <script src="js/bookmarks-bar.js"></script>
 </body>
 </html>
