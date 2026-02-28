@@ -13,39 +13,45 @@ let isCurrentBookmarked = false;
 // Load bookmarks bar on startup
 loadBookmarksBar();
 
-// Reload bookmarks bar when nav state changes (to update star icon)
+// Update state when nav state changes
 astra.nav.onStateChanged(async (state) => {
   currentPageUrl = state.url || '';
   currentPageTitle = state.title || '';
 
-  // Don't show bookmark star for internal pages
+  // Hide bookmark star for internal pages, show for real pages
   if (!currentPageUrl || currentPageUrl.startsWith('astra://')) {
-    bookmarkBtn.style.display = 'none';
-    return;
-  }
-  bookmarkBtn.style.display = '';
-
-  // Check if current page is bookmarked
-  try {
-    isCurrentBookmarked = await astra.bookmarks.isBookmarked(currentPageUrl);
-    updateBookmarkIcon();
-  } catch (err) {
-    console.error('[Bookmarks] isBookmarked check failed:', err);
+    bookmarkBtn.style.visibility = 'hidden';
+  } else {
+    bookmarkBtn.style.visibility = 'visible';
+    try {
+      isCurrentBookmarked = await astra.bookmarks.isBookmarked(currentPageUrl);
+      updateBookmarkIcon();
+    } catch (err) {
+      console.error('[Bookmarks] isBookmarked failed:', err);
+    }
   }
 });
 
-// Bookmark button click — toggle bookmark
-bookmarkBtn.addEventListener('click', async (e) => {
+// Use mousedown instead of click — more reliable, fires before focus changes
+bookmarkBtn.addEventListener('mousedown', async (e) => {
   e.preventDefault();
   e.stopPropagation();
+  e.stopImmediatePropagation();
 
-  // Fallback: read URL from address bar if state hasn't been set
+  // Get URL — try multiple sources
   let url = currentPageUrl;
-  if (!url && addressBar) {
-    url = addressBar.value;
+  if (!url || url.startsWith('astra://')) {
+    url = addressBar ? addressBar.value.trim() : '';
+  }
+  if (!url || url.startsWith('astra://')) {
+    // Flash red to show it can't bookmark this page
+    bookmarkBtn.style.color = '#ef4444';
+    setTimeout(() => { bookmarkBtn.style.color = ''; }, 500);
+    return;
   }
 
-  if (!url || url.startsWith('astra://')) return;
+  // Immediate visual feedback — flash the button
+  bookmarkBtn.style.color = 'var(--accent, #6366f1)';
 
   try {
     if (isCurrentBookmarked) {
@@ -59,11 +65,13 @@ bookmarkBtn.addEventListener('click', async (e) => {
       });
       isCurrentBookmarked = true;
     }
-
     updateBookmarkIcon();
     await loadBookmarksBar();
   } catch (err) {
-    console.error('[Bookmarks] toggle bookmark failed:', err);
+    console.error('[Bookmarks] toggle failed:', err);
+    // Flash red on error
+    bookmarkBtn.style.color = '#ef4444';
+    setTimeout(() => { bookmarkBtn.style.color = ''; }, 1000);
   }
 });
 
@@ -71,7 +79,8 @@ bookmarkBtn.addEventListener('click', async (e) => {
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
     e.preventDefault();
-    bookmarkBtn.click();
+    // Simulate mousedown on the bookmark button
+    bookmarkBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
   }
 });
 
@@ -79,9 +88,11 @@ function updateBookmarkIcon() {
   if (isCurrentBookmarked) {
     bookmarkIconEmpty.style.display = 'none';
     bookmarkIconFilled.style.display = '';
+    bookmarkBtn.style.color = 'var(--accent, #6366f1)';
   } else {
     bookmarkIconEmpty.style.display = '';
     bookmarkIconFilled.style.display = 'none';
+    bookmarkBtn.style.color = '';
   }
 }
 
@@ -122,8 +133,8 @@ function renderBookmarksBar(bookmarks) {
     title.textContent = bm.title || bm.url;
     el.appendChild(title);
 
-    // Click to navigate
-    el.addEventListener('click', () => {
+    el.addEventListener('mousedown', (e) => {
+      e.preventDefault();
       if (bm.url) astra.nav.go(bm.url);
     });
 
@@ -133,7 +144,6 @@ function renderBookmarksBar(bookmarks) {
       if (bm.url) {
         await astra.bookmarks.remove(bm.url);
         loadBookmarksBar();
-        // Update star icon if we removed the current page's bookmark
         if (bm.url === currentPageUrl) {
           isCurrentBookmarked = false;
           updateBookmarkIcon();
@@ -145,7 +155,7 @@ function renderBookmarksBar(bookmarks) {
   });
 }
 
-// Also capture favicon from tab updates for bookmarking
+// Capture favicon from tab updates
 astra.tabs.onUpdate((tab) => {
   if (tab.isActive && tab.favicon) {
     currentPageFavicon = tab.favicon;
