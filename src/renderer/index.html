@@ -82,10 +82,30 @@
     <div id="bookmarks-items"></div>
   </div>
 
+  <!-- Context menu for bookmarks -->
+  <div id="bm-context-menu" style="display:none;position:fixed;z-index:9999;background:var(--bg-toolbar);border:1px solid var(--border);border-radius:6px;padding:4px 0;min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.4);">
+    <div class="bm-ctx-item" id="bm-ctx-edit" style="padding:6px 14px;cursor:pointer;font-size:12px;color:var(--text-primary);transition:background 0.1s;">Edit bookmark</div>
+    <div class="bm-ctx-item" id="bm-ctx-remove" style="padding:6px 14px;cursor:pointer;font-size:12px;color:#ef4444;transition:background 0.1s;">Remove</div>
+  </div>
+
+  <!-- Edit bookmark dialog -->
+  <div id="bm-edit-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;">
+    <div style="background:var(--bg-toolbar);border:1px solid var(--border);border-radius:10px;padding:16px;width:340px;box-shadow:0 8px 24px rgba(0,0,0,0.5);">
+      <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px;">Edit bookmark</div>
+      <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px;">Name</label>
+      <input id="bm-edit-title" type="text" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--address-bg);color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;margin-bottom:10px;">
+      <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px;">URL</label>
+      <input id="bm-edit-url" type="text" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--address-bg);color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;margin-bottom:14px;">
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button id="bm-edit-cancel" style="padding:5px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-secondary);cursor:pointer;font-size:12px;font-family:inherit;">Cancel</button>
+        <button id="bm-edit-save" style="padding:5px 14px;border:none;border-radius:6px;background:var(--accent);color:white;cursor:pointer;font-size:12px;font-family:inherit;">Save</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/chrome.js"></script>
   <script src="js/toolbar.js"></script>
   <script>
-  // Inline bookmark logic — debug version
   (function() {
     var bmBtn = document.getElementById('bookmark-btn');
     var bmEmpty = document.getElementById('bookmark-icon-empty');
@@ -93,39 +113,40 @@
     var addrBar = document.getElementById('address-bar');
     var bmItems = document.getElementById('bookmarks-items');
 
+    // Context menu elements
+    var ctxMenu = document.getElementById('bm-context-menu');
+    var ctxEdit = document.getElementById('bm-ctx-edit');
+    var ctxRemove = document.getElementById('bm-ctx-remove');
+
+    // Edit dialog elements
+    var editOverlay = document.getElementById('bm-edit-overlay');
+    var editTitle = document.getElementById('bm-edit-title');
+    var editUrl = document.getElementById('bm-edit-url');
+    var editCancel = document.getElementById('bm-edit-cancel');
+    var editSave = document.getElementById('bm-edit-save');
+
     var pageUrl = '';
     var pageTitle = '';
     var pageFavicon = '';
     var isBm = false;
+    var ctxBookmark = null; // Currently right-clicked bookmark
 
-    // DEBUG: Show this ran — set title
-    document.title = 'Astra [BM:loaded]';
-
-    // Test click immediately
+    // Bookmark star button
     if (bmBtn) {
       bmBtn.addEventListener('click', handleBookmarkClick);
-      bmBtn.addEventListener('mousedown', function(e) {
-        document.title = 'Astra [BM:mousedown]';
-      });
     }
 
     async function handleBookmarkClick() {
-      document.title = 'Astra [BM:clicked]';
-
       var url = pageUrl;
       if (!url || url.indexOf('astra://') === 0) {
         url = addrBar ? addrBar.value.trim() : '';
       }
-      if (!url || url.indexOf('astra://') === 0) {
-        document.title = 'Astra [BM:no-url]';
-        return;
-      }
+      if (!url || url.indexOf('astra://') === 0) return;
 
       try {
         if (isBm) {
           await astra.bookmarks.remove(url);
           isBm = false;
-          document.title = 'Astra [BM:removed]';
         } else {
           await astra.bookmarks.add({
             title: pageTitle || url,
@@ -133,12 +154,11 @@
             favicon: pageFavicon || null
           });
           isBm = true;
-          document.title = 'Astra [BM:added!]';
         }
         updateIcon();
         loadBar();
       } catch (err) {
-        document.title = 'Astra [BM:ERROR ' + err.message + ']';
+        console.error('[Bookmarks] toggle failed:', err);
       }
     }
 
@@ -157,7 +177,7 @@
         var bookmarks = await astra.bookmarks.getBar();
         renderBar(bookmarks);
       } catch (err) {
-        bmItems.innerHTML = '<span class="bookmarks-empty">Error: ' + err.message + '</span>';
+        bmItems.innerHTML = '<span class="bookmarks-empty">Bookmarks will appear here</span>';
       }
     }
 
@@ -183,21 +203,107 @@
         t.className = 'bookmark-item-title';
         t.textContent = bm.title || bm.url;
         el.appendChild(t);
+
+        // Click to navigate
         el.addEventListener('click', function() {
           if (bm.url) astra.nav.go(bm.url);
         });
+
+        // Right-click to show context menu
         el.addEventListener('contextmenu', function(e) {
           e.preventDefault();
-          if (bm.url) {
-            astra.bookmarks.remove(bm.url).then(function() {
-              loadBar();
-              if (bm.url === pageUrl) { isBm = false; updateIcon(); }
-            });
-          }
+          e.stopPropagation();
+          ctxBookmark = bm;
+          showContextMenu(e.clientX, e.clientY);
         });
+
         bmItems.appendChild(el);
       });
     }
+
+    // Context menu
+    function showContextMenu(x, y) {
+      ctxMenu.style.display = 'block';
+      ctxMenu.style.left = x + 'px';
+      ctxMenu.style.top = y + 'px';
+      // Keep menu on screen
+      var rect = ctxMenu.getBoundingClientRect();
+      if (rect.right > window.innerWidth) {
+        ctxMenu.style.left = (window.innerWidth - rect.width - 4) + 'px';
+      }
+      if (rect.bottom > window.innerHeight) {
+        ctxMenu.style.top = (window.innerHeight - rect.height - 4) + 'px';
+      }
+    }
+
+    function hideContextMenu() {
+      ctxMenu.style.display = 'none';
+      ctxBookmark = null;
+    }
+
+    // Close context menu on click anywhere
+    document.addEventListener('click', function() { hideContextMenu(); });
+    document.addEventListener('contextmenu', function() { hideContextMenu(); });
+
+    // Hover effect for context menu items
+    ctxEdit.addEventListener('mouseenter', function() { this.style.background = 'var(--btn-hover)'; });
+    ctxEdit.addEventListener('mouseleave', function() { this.style.background = ''; });
+    ctxRemove.addEventListener('mouseenter', function() { this.style.background = 'var(--btn-hover)'; });
+    ctxRemove.addEventListener('mouseleave', function() { this.style.background = ''; });
+
+    // Edit action
+    ctxEdit.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (!ctxBookmark) return;
+      editTitle.value = ctxBookmark.title || '';
+      editUrl.value = ctxBookmark.url || '';
+      editOverlay.style.display = 'flex';
+      hideContextMenu();
+      editTitle.focus();
+      editTitle.select();
+    });
+
+    // Remove action
+    ctxRemove.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (!ctxBookmark || !ctxBookmark.url) return;
+      var removedUrl = ctxBookmark.url;
+      astra.bookmarks.remove(removedUrl).then(function() {
+        loadBar();
+        if (removedUrl === pageUrl) { isBm = false; updateIcon(); }
+      });
+      hideContextMenu();
+    });
+
+    // Edit dialog save
+    editSave.addEventListener('click', function() {
+      if (!ctxBookmark) return;
+      var oldUrl = ctxBookmark.url;
+      var newTitle = editTitle.value.trim();
+      var newUrl = editUrl.value.trim();
+      if (!newTitle || !newUrl) return;
+      astra.bookmarks.update(oldUrl, { title: newTitle, url: newUrl }).then(function() {
+        editOverlay.style.display = 'none';
+        ctxBookmark = null;
+        loadBar();
+        // Update star if current page URL changed
+        if (oldUrl === pageUrl && newUrl !== pageUrl) {
+          isBm = false; updateIcon();
+        }
+      });
+    });
+
+    // Edit dialog cancel
+    editCancel.addEventListener('click', function() {
+      editOverlay.style.display = 'none';
+      ctxBookmark = null;
+    });
+
+    // Close edit dialog on Escape, save on Enter
+    editOverlay.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { editOverlay.style.display = 'none'; ctxBookmark = null; }
+      if (e.key === 'Enter') { editSave.click(); }
+    });
 
     // Nav state listener
     astra.nav.onStateChanged(function(state) {

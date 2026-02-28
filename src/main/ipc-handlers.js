@@ -137,6 +137,16 @@ function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle('bookmarks:update', (_e, url, data) => {
+    try {
+      const bookmarksDb = require('./storage/bookmarks-db');
+      bookmarksDb.updateByUrl(url, data);
+    } catch (err) {
+      console.error('[Bookmarks] update error:', err);
+      throw err;
+    }
+  });
+
   ipcMain.handle(IPC.BOOKMARKS_REMOVE, (_e, url) => {
     try {
       const bookmarksDb = require('./storage/bookmarks-db');

@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('astra', {
   bookmarks: {
     add: (data) => ipcRenderer.invoke('bookmarks:add', data),
     remove: (url) => ipcRenderer.invoke('bookmarks:remove', url),
+    update: (url, data) => ipcRenderer.invoke('bookmarks:update', url, data),
     getBar: () => ipcRenderer.invoke('bookmarks:getBar'),
     getAll: () => ipcRenderer.invoke('bookmarks:getAll'),
     isBookmarked: (url) => ipcRenderer.invoke('bookmarks:isBookmarked', url),

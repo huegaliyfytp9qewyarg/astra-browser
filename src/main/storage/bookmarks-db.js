@@ -93,6 +93,17 @@ function deleteBookmark(id) {
   saveBookmarks(filtered);
 }
 
+function updateByUrl(oldUrl, data) {
+  const items = loadBookmarks();
+  const bm = items.find(b => b.url === oldUrl && b.type === 'bookmark');
+  if (bm) {
+    if (data.title !== undefined) bm.title = data.title;
+    if (data.url !== undefined) bm.url = data.url;
+    bm.updatedAt = Date.now();
+    saveBookmarks(items);
+  }
+}
+
 function search(query) {
   const items = loadBookmarks();
   const q = query.toLowerCase();
@@ -109,5 +120,6 @@ module.exports = {
   isBookmarked,
   removeByUrl,
   deleteBookmark,
+  updateByUrl,
   search,
 };
