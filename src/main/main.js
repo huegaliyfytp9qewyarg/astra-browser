@@ -41,48 +41,51 @@ app.whenReady().then(async () => {
   // Register custom protocol handler
   registerProtocol();
 
-  // Initialize privacy features
-  await initAdBlocker();
-  initHttpsUpgrade();
-
-  // ── Privacy headers on all requests ──
+  // ── Privacy headers on all requests (instant, no async) ──
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     details.requestHeaders['DNT'] = '1';
     details.requestHeaders['Sec-GPC'] = '1';
     callback({ requestHeaders: details.requestHeaders });
   });
 
-  // ── Permission management ──
+  // ── Permission management (instant) ──
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
-    // Block notification spam, midi, idle detection, display capture
     const blocked = ['notifications', 'midi', 'idle-detection', 'display-capture'];
     if (blocked.includes(permission)) return callback(false);
 
-    // Allow: clipboard, media, fullscreen, pointer lock
     const allowed = [
       'clipboard-read', 'clipboard-sanitized-write',
       'media', 'fullscreen', 'pointerLock', 'openExternal',
     ];
     if (allowed.includes(permission)) return callback(true);
 
-    // Block everything else by default (geolocation, etc.)
     callback(false);
   });
 
-  // ── Spellcheck ──
+  // ── Spellcheck (instant) ──
   session.defaultSession.setSpellCheckerLanguages(['en-US']);
 
-  // Initialize download manager
+  // Initialize HTTPS upgrade (instant, sync)
+  initHttpsUpgrade();
+
+  // Initialize download manager (instant)
   downloadManager.init();
 
-  // Register IPC handlers
+  // Register IPC handlers (instant)
   registerIpcHandlers();
 
-  // Create the main browser window
+  // Create the main browser window FIRST (show UI immediately)
   const win = createMainWindow();
 
   // Build application menu (contains all keyboard shortcuts)
   buildAppMenu();
+
+  // Initialize ad blocker in background (don't block window creation)
+  initAdBlocker().then(() => {
+    console.log('[Astra] Ad blocker initialized');
+  }).catch(err => {
+    console.error('[Astra] Ad blocker init error:', err);
+  });
 
   // ── Session restore + Chrome auto-import ──
   const chromeView = getChromeView();
@@ -100,8 +103,8 @@ app.whenReady().then(async () => {
       console.log('[Astra] First launch detected — importing Chrome data...');
       try {
         const result = await chromeImport.runImport();
-        if (result.bookmarks > 0 || result.history > 0) {
-          console.log(`[Astra] Imported ${result.bookmarks} bookmarks, ${result.history} history entries`);
+        if (result.bookmarks > 0 || result.history > 0 || result.passwords > 0) {
+          console.log(`[Astra] Imported ${result.bookmarks} bookmarks, ${result.history} history, ${result.passwords || 0} passwords`);
           // Refresh the bookmarks bar in the chrome view
           chromeView.webContents.send('bookmarks:refresh');
         }

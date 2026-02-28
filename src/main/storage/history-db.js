@@ -76,4 +76,28 @@ function clearOlderThan(days) {
   saveHistory(filtered);
 }
 
-module.exports = { addVisit, search, getRecent, deleteEntry, clearAll, clearOlderThan };
+function bulkAddVisits(entries) {
+  const items = loadHistory();
+  const existingUrls = new Set(items.map(h => h.url));
+
+  for (const entry of entries) {
+    if (existingUrls.has(entry.url)) continue;
+    const id = nextId++;
+    items.push({
+      id, url: entry.url, title: entry.title || '', favicon: null,
+      visitTime: entry.visitTime || Date.now(), visitCount: entry.visitCount || 1
+    });
+    existingUrls.add(entry.url);
+  }
+
+  // Keep max 5000
+  if (items.length > 5000) {
+    items.sort((a, b) => b.visitTime - a.visitTime);
+    items.length = 5000;
+  }
+
+  saveHistory(items);
+  return items.length;
+}
+
+module.exports = { addVisit, search, getRecent, deleteEntry, clearAll, clearOlderThan, bulkAddVisits };

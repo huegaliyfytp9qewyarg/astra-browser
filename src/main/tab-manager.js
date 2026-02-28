@@ -54,6 +54,11 @@ function createTab(url = DEFAULT_URL) {
     notifyChromeTabUpdate(tabId);
   });
 
+  // Capture pending credentials before navigation
+  wc.on('will-navigate', () => {
+    captureAndSaveCredentials(wc);
+  });
+
   wc.on('did-navigate', (_e, navUrl) => {
     tabInfo.url = navUrl;
     tabInfo.canGoBack = wc.canGoBack();
@@ -67,6 +72,11 @@ function createTab(url = DEFAULT_URL) {
         historyDb.addVisit(navUrl, tabInfo.title, tabInfo.favicon);
       } catch { /* ignore */ }
     }
+
+    // Inject password save detector on HTTPS pages
+    if (navUrl && navUrl.startsWith('https://')) {
+      injectPasswordSaveDetector(wc);
+    }
   });
 
   wc.on('did-navigate-in-page', (_e, navUrl) => {
@@ -77,7 +87,7 @@ function createTab(url = DEFAULT_URL) {
     notifyChromeNavState(tabId);
   });
 
-  // When a search page finishes loading, inject search results
+  // When a search page finishes loading, inject search results + autofill
   wc.on('did-finish-load', () => {
     const currentUrl = wc.getURL();
     console.log('[Astra] did-finish-load:', currentUrl);
@@ -92,6 +102,11 @@ function createTab(url = DEFAULT_URL) {
       } catch (err) {
         console.error('[Astra] Search trigger error:', err);
       }
+    }
+
+    // Autofill: inject saved passwords into login forms (HTTPS only)
+    if (currentUrl && currentUrl.startsWith('https://')) {
+      tryAutofill(wc, currentUrl);
     }
   });
 
@@ -383,6 +398,74 @@ function notifyChromeNavState(tabId) {
     canGoForward: tab.canGoForward,
     isLoading: tab.isLoading,
   });
+}
+
+function injectPasswordSaveDetector(wc) {
+  // Capture credentials before form submission by storing them in a global
+  wc.executeJavaScript(`
+    (function() {
+      if (window.__astraPasswordDetector) return;
+      window.__astraPasswordDetector = true;
+      window.__astraPendingCreds = null;
+      document.addEventListener('submit', function(e) {
+        const form = e.target;
+        if (!form || form.tagName !== 'FORM') return;
+        const pwField = form.querySelector('input[type="password"]');
+        if (!pwField || !pwField.value) return;
+        const userField = form.querySelector('input[type="email"], input[type="text"], input[name*="user"], input[name*="login"], input[name*="email"], input[autocomplete="username"]');
+        const username = userField ? userField.value : '';
+        if (!username) return;
+        window.__astraPendingCreds = { url: location.href, username: username, password: pwField.value };
+      }, true);
+    })();
+  `).catch(() => {});
+}
+
+// Called before navigation to grab any pending credentials
+async function captureAndSaveCredentials(wc) {
+  try {
+    const creds = await wc.executeJavaScript('window.__astraPendingCreds');
+    if (creds && creds.url && creds.username && creds.password) {
+      const passwordsDb = require('./storage/passwords-db');
+      passwordsDb.addPassword(creds.url, creds.username, creds.password);
+      console.log('[Astra] Saved password for', creds.username, 'on', creds.url);
+    }
+  } catch { /* ignore */ }
+}
+
+async function tryAutofill(wc, url) {
+  try {
+    const { extractDomain } = require('./storage/passwords-db');
+    const passwordsDb = require('./storage/passwords-db');
+    const domain = extractDomain(url);
+    const creds = passwordsDb.getPasswordsForDomain(domain);
+    if (creds.length === 0) return;
+
+    // Use the first matching credential
+    const cred = creds[0];
+    await wc.executeJavaScript(`
+      (function() {
+        const forms = document.querySelectorAll('form');
+        let filled = false;
+        for (const form of forms) {
+          const pwField = form.querySelector('input[type="password"]');
+          if (!pwField) continue;
+          const userField = form.querySelector('input[type="email"], input[type="text"], input[name*="user"], input[name*="login"], input[name*="email"], input[autocomplete="username"]');
+          if (userField) {
+            userField.value = ${JSON.stringify(cred.username)};
+            userField.dispatchEvent(new Event('input', { bubbles: true }));
+            userField.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          pwField.value = ${JSON.stringify(cred.password)};
+          pwField.dispatchEvent(new Event('input', { bubbles: true }));
+          pwField.dispatchEvent(new Event('change', { bubbles: true }));
+          filled = true;
+          break;
+        }
+        filled;
+      })();
+    `);
+  } catch { /* ignore autofill errors silently */ }
 }
 
 function reopenLastClosedTab() {

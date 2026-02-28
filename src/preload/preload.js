@@ -77,6 +77,13 @@ contextBridge.exposeInMainWorld('astra', {
     show: () => ipcRenderer.invoke('menu:show'),
   },
 
+  passwords: {
+    getForDomain: (domain) => ipcRenderer.invoke('passwords:getForDomain', domain),
+    getAll: () => ipcRenderer.invoke('passwords:getAll'),
+    add: (url, username, password) => ipcRenderer.invoke('passwords:add', url, username, password),
+    remove: (domain, username) => ipcRenderer.invoke('passwords:remove', domain, username),
+  },
+
   events: {
     onAddressBarFocus: (cb) => { ipcRenderer.on('addressbar:focus', () => cb()); },
     onBookmarkToggle: (cb) => { ipcRenderer.on('bookmark:toggle', () => cb()); },

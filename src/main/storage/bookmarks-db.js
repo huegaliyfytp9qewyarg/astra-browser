@@ -110,6 +110,30 @@ function search(query) {
   return items.filter(b => b.type === 'bookmark' && ((b.title && b.title.toLowerCase().includes(q)) || (b.url && b.url.toLowerCase().includes(q))));
 }
 
+function bulkAddBookmarks(parentId, bookmarks) {
+  const items = loadBookmarks();
+  const existingUrls = new Set(items.filter(b => b.url).map(b => b.url));
+  const children = items.filter(b => b.parentId === parentId);
+  let maxPos = children.reduce((max, b) => Math.max(max, b.position || 0), -1);
+  const now = Date.now();
+  let added = 0;
+
+  for (const bm of bookmarks) {
+    if (existingUrls.has(bm.url)) continue;
+    const id = nextId++;
+    maxPos++;
+    items.push({
+      id, parentId, type: 'bookmark', title: bm.title, url: bm.url,
+      favicon: bm.favicon || null, position: maxPos, createdAt: now, updatedAt: now
+    });
+    existingUrls.add(bm.url);
+    added++;
+  }
+
+  if (added > 0) saveBookmarks(items);
+  return added;
+}
+
 module.exports = {
   getBookmarksBarId,
   addBookmark,
@@ -122,4 +146,5 @@ module.exports = {
   deleteBookmark,
   updateByUrl,
   search,
+  bulkAddBookmarks,
 };

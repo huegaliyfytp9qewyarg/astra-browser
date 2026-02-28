@@ -6,6 +6,7 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const crypto = require('crypto');
 
 /**
  * Find Chrome's user data directory (supports Default + numbered profiles)
@@ -126,8 +127,133 @@ async function importHistory(profileDir) {
 }
 
 /**
- * Run the full import: bookmarks + history from Chrome into Astra storage
- * Returns { bookmarks: number, history: number }
+ * Decrypt Chrome's DPAPI-encrypted master key using PowerShell (Windows only)
+ */
+async function decryptDPAPI(encryptedData) {
+  if (process.platform !== 'win32') return null;
+
+  const { execSync } = require('child_process');
+  const b64 = encryptedData.toString('base64');
+  const psScript = `Add-Type -AssemblyName System.Security; $d = [System.Security.Cryptography.ProtectedData]::Unprotect([Convert]::FromBase64String('${b64}'), $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser); [Convert]::ToBase64String($d)`;
+
+  try {
+    const result = execSync(`powershell -NoProfile -Command "${psScript}"`, {
+      encoding: 'utf8',
+      timeout: 15000,
+      windowsHide: true,
+    }).trim();
+    return Buffer.from(result, 'base64');
+  } catch (err) {
+    console.error('[ChromeImport] DPAPI decryption failed:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Decrypt a single Chrome password using AES-256-GCM
+ */
+function decryptPassword(encryptedValue, masterKey) {
+  if (!encryptedValue || encryptedValue.length < 15) return null;
+
+  const prefix = encryptedValue.slice(0, 3).toString('utf8');
+  if (prefix === 'v10' || prefix === 'v20') {
+    // AES-256-GCM: 3-byte prefix + 12-byte nonce + ciphertext + 16-byte auth tag
+    const nonce = encryptedValue.slice(3, 15);
+    const ciphertext = encryptedValue.slice(15, encryptedValue.length - 16);
+    const authTag = encryptedValue.slice(encryptedValue.length - 16);
+
+    const decipher = crypto.createDecipheriv('aes-256-gcm', masterKey, nonce);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(ciphertext);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString('utf8');
+  }
+
+  return null; // Older DPAPI-only passwords not supported
+}
+
+/**
+ * Import passwords from Chrome's Login Data SQLite database (Windows only)
+ */
+async function importPasswords(profileDir) {
+  if (process.platform !== 'win32') {
+    console.log('[ChromeImport] Password import only supported on Windows (DPAPI)');
+    return [];
+  }
+
+  const localStatePath = path.join(profileDir, '..', 'Local State');
+  if (!fs.existsSync(localStatePath)) return [];
+
+  const loginDataPath = path.join(profileDir, 'Login Data');
+  if (!fs.existsSync(loginDataPath)) return [];
+
+  try {
+    // Step 1: Get encrypted master key from Local State
+    const localState = JSON.parse(fs.readFileSync(localStatePath, 'utf8'));
+    const encryptedKeyB64 = localState.os_crypt && localState.os_crypt.encrypted_key;
+    if (!encryptedKeyB64) {
+      console.log('[ChromeImport] No os_crypt.encrypted_key found in Local State');
+      return [];
+    }
+
+    // Step 2: Decode and strip "DPAPI" prefix (5 bytes)
+    const encryptedKeyFull = Buffer.from(encryptedKeyB64, 'base64');
+    const encryptedKey = encryptedKeyFull.slice(5);
+
+    // Step 3: Decrypt master key using DPAPI
+    const masterKey = await decryptDPAPI(encryptedKey);
+    if (!masterKey) {
+      console.log('[ChromeImport] Failed to decrypt Chrome master key');
+      return [];
+    }
+
+    // Step 4: Copy and read Login Data SQLite
+    const tmpFile = path.join(os.tmpdir(), `astra-chrome-logins-${Date.now()}.db`);
+    fs.copyFileSync(loginDataPath, tmpFile);
+
+    const initSqlJs = require('sql.js');
+    const SQL = await initSqlJs();
+    const fileBuffer = fs.readFileSync(tmpFile);
+    const db = new SQL.Database(fileBuffer);
+
+    const results = db.exec(
+      'SELECT origin_url, username_value, password_value FROM logins WHERE blacklisted_by_user = 0'
+    );
+
+    db.close();
+    try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+
+    if (!results.length || !results[0].values.length) return [];
+
+    // Step 5: Decrypt each password
+    const passwords = [];
+    for (const row of results[0].values) {
+      const url = row[0];
+      const username = row[1];
+      const encryptedPw = row[2];
+
+      if (!username || !encryptedPw) continue;
+
+      try {
+        const pwBuffer = Buffer.from(encryptedPw);
+        const password = decryptPassword(pwBuffer, masterKey);
+        if (password) {
+          passwords.push({ url, username, password });
+        }
+      } catch { /* skip entries that fail decryption */ }
+    }
+
+    console.log(`[ChromeImport] Found ${passwords.length} passwords in ${profileDir}`);
+    return passwords;
+  } catch (err) {
+    console.error('[ChromeImport] Password import error:', err.message);
+    return [];
+  }
+}
+
+/**
+ * Run the full import: bookmarks + history + passwords from Chrome into Astra storage
+ * Returns { bookmarks: number, history: number, passwords: number }
  */
 async function runImport() {
   const profileDirs = getChromeProfileDirs();
@@ -149,16 +275,7 @@ async function runImport() {
       const bookmarksDb = require('./storage/bookmarks-db');
       const barId = bookmarksDb.getBookmarksBarId();
       if (barId) {
-        // Check which bookmarks already exist
-        const existing = bookmarksDb.getAll();
-        const existingUrls = new Set(existing.filter(b => b.url).map(b => b.url));
-
-        for (const bm of chromeBookmarks) {
-          if (!existingUrls.has(bm.url)) {
-            bookmarksDb.addBookmark(barId, bm.title, bm.url, null);
-            importedBookmarks++;
-          }
-        }
+        importedBookmarks = bookmarksDb.bulkAddBookmarks(barId, chromeBookmarks);
         console.log(`[ChromeImport] Imported ${importedBookmarks} new bookmarks`);
       }
     } catch (err) {
@@ -172,20 +289,30 @@ async function runImport() {
     const chromeHistory = await importHistory(profileDir);
     if (chromeHistory.length > 0) {
       const historyDb = require('./storage/history-db');
-
-      for (const entry of chromeHistory) {
-        if (entry.url && !entry.url.startsWith('chrome://') && !entry.url.startsWith('chrome-extension://')) {
-          historyDb.addVisit(entry.url, entry.title, null);
-          importedHistory++;
-        }
-      }
+      const filtered = chromeHistory.filter(
+        (e) => e.url && !e.url.startsWith('chrome://') && !e.url.startsWith('chrome-extension://')
+      );
+      importedHistory = historyDb.bulkAddVisits(filtered);
       console.log(`[ChromeImport] Imported ${importedHistory} history entries`);
     }
   } catch (err) {
     console.error('[ChromeImport] History storage error:', err.message);
   }
 
-  return { bookmarks: importedBookmarks, history: importedHistory };
+  // Import passwords (Windows only — uses DPAPI)
+  let importedPasswords = 0;
+  try {
+    const chromePasswords = await importPasswords(profileDir);
+    if (chromePasswords.length > 0) {
+      const passwordsDb = require('./storage/passwords-db');
+      importedPasswords = passwordsDb.bulkAddPasswords(chromePasswords);
+      console.log(`[ChromeImport] Imported ${importedPasswords} passwords`);
+    }
+  } catch (err) {
+    console.error('[ChromeImport] Password storage error:', err.message);
+  }
+
+  return { bookmarks: importedBookmarks, history: importedHistory, passwords: importedPasswords };
 }
 
 /**

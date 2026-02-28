@@ -188,6 +188,45 @@ function registerIpcHandlers() {
     }
   });
 
+  // Passwords
+  ipcMain.handle('passwords:getForDomain', (_e, domain) => {
+    try {
+      const passwordsDb = require('./storage/passwords-db');
+      return passwordsDb.getPasswordsForDomain(domain);
+    } catch (err) {
+      console.error('[Passwords] getForDomain error:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('passwords:getAll', () => {
+    try {
+      const passwordsDb = require('./storage/passwords-db');
+      return passwordsDb.getAllPasswords();
+    } catch (err) {
+      console.error('[Passwords] getAll error:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('passwords:add', (_e, url, username, password) => {
+    try {
+      const passwordsDb = require('./storage/passwords-db');
+      passwordsDb.addPassword(url, username, password);
+    } catch (err) {
+      console.error('[Passwords] add error:', err);
+    }
+  });
+
+  ipcMain.handle('passwords:remove', (_e, domain, username) => {
+    try {
+      const passwordsDb = require('./storage/passwords-db');
+      passwordsDb.removePassword(domain, username);
+    } catch (err) {
+      console.error('[Passwords] remove error:', err);
+    }
+  });
+
   // Settings
   ipcMain.handle(IPC.SETTINGS_GET, async (_e, key) => {
     const settingsStore = require('./storage/settings-store');
@@ -248,7 +287,7 @@ function registerIpcHandlers() {
             dialog.showMessageBox(win, {
               type: 'info',
               title: 'Chrome Import Complete',
-              message: `Imported ${result.bookmarks} bookmarks and ${result.history} history entries from Chrome.`,
+              message: `Imported ${result.bookmarks} bookmarks, ${result.history} history entries, and ${result.passwords || 0} passwords from Chrome.`,
               buttons: ['OK'],
             });
           } catch (err) {

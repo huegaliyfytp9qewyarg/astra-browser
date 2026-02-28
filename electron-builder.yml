@@ -26,6 +26,7 @@ mac:
 win:
   sign: false
   icon: assets/icon.ico
+  requestedExecutionLevel: asInvoker
   target:
     - portable
 
