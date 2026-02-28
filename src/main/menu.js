@@ -56,6 +56,33 @@ function buildAppMenu() {
           },
         },
         { type: 'separator' },
+        {
+          label: 'Import from Chrome...',
+          click: async () => {
+            const chromeImport = require('./chrome-import');
+            const { dialog } = require('electron');
+            const win = wm().getMainWindow();
+            try {
+              const result = await chromeImport.runImport();
+              const chrome = wm().getChromeView();
+              if (chrome) chrome.webContents.send('bookmarks:refresh');
+              dialog.showMessageBox(win, {
+                type: 'info',
+                title: 'Chrome Import Complete',
+                message: `Imported ${result.bookmarks} bookmarks and ${result.history} history entries from Chrome.`,
+                buttons: ['OK'],
+              });
+            } catch (err) {
+              dialog.showMessageBox(win, {
+                type: 'error',
+                title: 'Import Failed',
+                message: `Could not import Chrome data: ${err.message}`,
+                buttons: ['OK'],
+              });
+            }
+          },
+        },
+        { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
       ],
     },
