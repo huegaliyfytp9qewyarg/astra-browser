@@ -204,6 +204,12 @@ function registerIpcHandlers() {
     return await settingsStore.getAll();
   });
 
+  // Chrome data import
+  ipcMain.handle('import:chrome', async () => {
+    const chromeImport = require('./chrome-import');
+    return await chromeImport.runImport();
+  });
+
   // Find in page
   ipcMain.handle('find:query', (_e, text) => {
     const tab = tabManager.getActiveTab();

@@ -69,9 +69,14 @@ contextBridge.exposeInMainWorld('astra', {
     onResult: (cb) => { ipcRenderer.on('find:result', (_e, data) => cb(data)); },
   },
 
+  import: {
+    chrome: () => ipcRenderer.invoke('import:chrome'),
+  },
+
   events: {
     onAddressBarFocus: (cb) => { ipcRenderer.on('addressbar:focus', () => cb()); },
     onBookmarkToggle: (cb) => { ipcRenderer.on('bookmark:toggle', () => cb()); },
+    onBookmarksRefresh: (cb) => { ipcRenderer.on('bookmarks:refresh', () => cb()); },
   },
 
   downloads: {

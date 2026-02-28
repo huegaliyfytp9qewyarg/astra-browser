@@ -8,6 +8,7 @@ const { initAdBlocker } = require('./privacy/ad-blocker');
 const { initHttpsUpgrade } = require('./privacy/https-upgrade');
 const downloadManager = require('./download-manager');
 const sessionManager = require('./session-manager');
+const chromeImport = require('./chrome-import');
 
 // ── Privacy & Security: Chromium command-line switches ──
 // Disable safe browsing warnings (no "dangerous file" prompts)
@@ -83,17 +84,30 @@ app.whenReady().then(async () => {
   // Build application menu (contains all keyboard shortcuts)
   buildAppMenu();
 
-  // ── Session restore ──
+  // ── Session restore + Chrome auto-import ──
   const chromeView = getChromeView();
-  const originalHandler = chromeView.webContents.listeners('did-finish-load');
-  chromeView.webContents.removeAllListeners('did-finish-load');
-  chromeView.webContents.on('did-finish-load', () => {
+  chromeView.webContents.on('did-finish-load', async () => {
     const tabManager = require('./tab-manager');
     const savedTabs = sessionManager.restoreSession();
     if (savedTabs && savedTabs.length > 0) {
       savedTabs.forEach((url) => tabManager.createTab(url));
     } else {
       tabManager.createTab();
+    }
+
+    // Auto-import Chrome data on first launch
+    if (chromeImport.shouldAutoImport()) {
+      console.log('[Astra] First launch detected — importing Chrome data...');
+      try {
+        const result = await chromeImport.runImport();
+        if (result.bookmarks > 0 || result.history > 0) {
+          console.log(`[Astra] Imported ${result.bookmarks} bookmarks, ${result.history} history entries`);
+          // Refresh the bookmarks bar in the chrome view
+          chromeView.webContents.send('bookmarks:refresh');
+        }
+      } catch (err) {
+        console.error('[Astra] Chrome import error:', err);
+      }
     }
   });
 

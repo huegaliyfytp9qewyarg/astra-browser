@@ -375,6 +375,9 @@
       if (tab.isActive && tab.favicon) pageFavicon = tab.favicon;
     });
 
+    // Listen for refresh events (e.g., after Chrome import)
+    document.addEventListener('astra:refreshBookmarks', function() { loadBar(); });
+
     // Initial load
     loadBar();
   })();
@@ -472,6 +475,11 @@
     astra.events.onBookmarkToggle(function() {
       var btn = document.getElementById('bookmark-btn');
       if (btn) btn.click();
+    });
+    // Refresh bookmarks bar (after Chrome import, etc.)
+    astra.events.onBookmarksRefresh(function() {
+      // The loadBar function is in the bookmark IIFE, trigger it by dispatching a custom event
+      document.dispatchEvent(new Event('astra:refreshBookmarks'));
     });
   })();
   </script>
