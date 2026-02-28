@@ -277,31 +277,7 @@ html, body {
   color: var(--text-muted);
 }
 
-/* Bookmark star inside address bar */
-#bookmark-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  border-radius: 4px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  flex-shrink: 0;
-  padding: 0;
-  z-index: 10;
-  position: relative;
-  pointer-events: auto;
-  transition: color 0.15s, background 0.15s;
-}
-
-#bookmark-btn:hover {
-  background: var(--btn-hover);
-  color: var(--text-primary);
-}
+/* Bookmark button uses .nav-btn styles */
 
 /* Shield / Privacy button */
 #shield-btn {
@@ -395,9 +371,6 @@ html, body {
 }
 
 /* Bookmark button star */
-#bookmark-btn {
-  position: relative;
-}
 
 /* Loading spinner for favicon */
 .favicon-spinner {

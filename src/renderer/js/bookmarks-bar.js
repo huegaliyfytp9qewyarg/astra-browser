@@ -32,26 +32,14 @@ astra.nav.onStateChanged(async (state) => {
   }
 });
 
-// Use mousedown instead of click — more reliable, fires before focus changes
-bookmarkBtn.addEventListener('mousedown', async (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  e.stopImmediatePropagation();
-
-  // Get URL — try multiple sources
+// Bookmark button click — toggle bookmark
+bookmarkBtn.onclick = async function () {
+  // Get URL — try nav state first, then address bar
   let url = currentPageUrl;
   if (!url || url.startsWith('astra://')) {
     url = addressBar ? addressBar.value.trim() : '';
   }
-  if (!url || url.startsWith('astra://')) {
-    // Flash red to show it can't bookmark this page
-    bookmarkBtn.style.color = '#ef4444';
-    setTimeout(() => { bookmarkBtn.style.color = ''; }, 500);
-    return;
-  }
-
-  // Immediate visual feedback — flash the button
-  bookmarkBtn.style.color = 'var(--accent, #6366f1)';
+  if (!url || url.startsWith('astra://')) return;
 
   try {
     if (isCurrentBookmarked) {
@@ -69,18 +57,14 @@ bookmarkBtn.addEventListener('mousedown', async (e) => {
     await loadBookmarksBar();
   } catch (err) {
     console.error('[Bookmarks] toggle failed:', err);
-    // Flash red on error
-    bookmarkBtn.style.color = '#ef4444';
-    setTimeout(() => { bookmarkBtn.style.color = ''; }, 1000);
   }
-});
+};
 
 // Ctrl+D to bookmark
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
     e.preventDefault();
-    // Simulate mousedown on the bookmark button
-    bookmarkBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    bookmarkBtn.onclick();
   }
 });
 
@@ -88,11 +72,9 @@ function updateBookmarkIcon() {
   if (isCurrentBookmarked) {
     bookmarkIconEmpty.style.display = 'none';
     bookmarkIconFilled.style.display = '';
-    bookmarkBtn.style.color = 'var(--accent, #6366f1)';
   } else {
     bookmarkIconEmpty.style.display = '';
     bookmarkIconFilled.style.display = 'none';
-    bookmarkBtn.style.color = '';
   }
 }
 
@@ -133,8 +115,7 @@ function renderBookmarksBar(bookmarks) {
     title.textContent = bm.title || bm.url;
     el.appendChild(title);
 
-    el.addEventListener('mousedown', (e) => {
-      e.preventDefault();
+    el.addEventListener('click', () => {
       if (bm.url) astra.nav.go(bm.url);
     });
 
