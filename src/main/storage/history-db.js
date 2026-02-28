@@ -1,44 +1,79 @@
-const { getDatabase } = require('./database');
+// History storage using JSON file
+const { readJSON, writeJSON } = require('./database');
 
-function addVisit(url, title, favicon) {
-  const db = getDatabase();
-  const existing = db.prepare('SELECT id, visit_count FROM history WHERE url = ?').get(url);
+const HISTORY_FILE = 'history.json';
+let nextId = 1;
 
-  if (existing) {
-    db.prepare('UPDATE history SET title = ?, favicon = ?, visit_time = ?, visit_count = visit_count + 1 WHERE id = ?')
-      .run(title || '', favicon || null, Date.now(), existing.id);
-  } else {
-    db.prepare('INSERT INTO history (url, title, favicon, visit_time, visit_count) VALUES (?, ?, ?, ?, 1)')
-      .run(url, title || '', favicon || null, Date.now());
+function loadHistory() {
+  const data = readJSON(HISTORY_FILE, null);
+  if (!data) {
+    writeJSON(HISTORY_FILE, { nextId: 1, items: [] });
+    nextId = 1;
+    return [];
   }
+  nextId = data.nextId || 1;
+  return data.items || [];
 }
 
-function search(query, limit = 50, offset = 0) {
-  const db = getDatabase();
-  const pattern = `%${query}%`;
-  return db.prepare('SELECT * FROM history WHERE url LIKE ? OR title LIKE ? ORDER BY visit_time DESC LIMIT ? OFFSET ?')
-    .all(pattern, pattern, limit, offset);
+function saveHistory(items) {
+  writeJSON(HISTORY_FILE, { nextId, items });
+}
+
+function addVisit(url, title, favicon) {
+  const items = loadHistory();
+  const existing = items.find(h => h.url === url);
+
+  if (existing) {
+    existing.title = title || existing.title;
+    existing.favicon = favicon || existing.favicon;
+    existing.visitTime = Date.now();
+    existing.visitCount = (existing.visitCount || 1) + 1;
+  } else {
+    const id = nextId++;
+    items.push({
+      id, url, title: title || '', favicon: favicon || null,
+      visitTime: Date.now(), visitCount: 1
+    });
+  }
+
+  // Keep max 5000 history entries
+  if (items.length > 5000) {
+    items.sort((a, b) => b.visitTime - a.visitTime);
+    items.length = 5000;
+  }
+
+  saveHistory(items);
+}
+
+function search(query, limit = 50) {
+  const items = loadHistory();
+  const q = query.toLowerCase();
+  return items
+    .filter(h => (h.url && h.url.toLowerCase().includes(q)) || (h.title && h.title.toLowerCase().includes(q)))
+    .sort((a, b) => b.visitTime - a.visitTime)
+    .slice(0, limit);
 }
 
 function getRecent(limit = 50) {
-  const db = getDatabase();
-  return db.prepare('SELECT * FROM history ORDER BY visit_time DESC LIMIT ?').all(limit);
+  const items = loadHistory();
+  return items.sort((a, b) => b.visitTime - a.visitTime).slice(0, limit);
 }
 
 function deleteEntry(id) {
-  const db = getDatabase();
-  db.prepare('DELETE FROM history WHERE id = ?').run(id);
+  const items = loadHistory();
+  const filtered = items.filter(h => h.id !== id);
+  saveHistory(filtered);
 }
 
 function clearAll() {
-  const db = getDatabase();
-  db.prepare('DELETE FROM history').run();
+  saveHistory([]);
 }
 
 function clearOlderThan(days) {
-  const db = getDatabase();
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-  db.prepare('DELETE FROM history WHERE visit_time < ?').run(cutoff);
+  const items = loadHistory();
+  const filtered = items.filter(h => h.visitTime >= cutoff);
+  saveHistory(filtered);
 }
 
 module.exports = { addVisit, search, getRecent, deleteEntry, clearAll, clearOlderThan };

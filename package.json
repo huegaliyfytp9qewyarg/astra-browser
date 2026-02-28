@@ -15,14 +15,12 @@
   "dependencies": {
     "@ghostery/adblocker-electron": "^2.5.0",
     "@ghostery/adblocker-electron-preload": "^2.5.0",
-    "better-sqlite3": "^11.0.0",
     "cross-fetch": "^4.0.0",
     "duck-duck-scrape": "^2.2.0",
     "electron-store": "^10.0.0"
   },
   "devDependencies": {
     "electron": "^33.0.0",
-    "electron-builder": "^25.0.0",
-    "@electron/rebuild": "^3.7.0"
+    "electron-builder": "^25.0.0"
   }
 }

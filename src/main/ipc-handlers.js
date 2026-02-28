@@ -129,15 +129,7 @@ function registerIpcHandlers() {
   ipcMain.handle(IPC.BOOKMARKS_ADD, (_e, data) => {
     try {
       const bookmarksDb = require('./storage/bookmarks-db');
-      let parentId = data.parentId || bookmarksDb.getBookmarksBarId();
-      // If Bookmarks Bar folder doesn't exist yet, create it
-      if (!parentId) {
-        const { getDatabase } = require('./storage/database');
-        const db = getDatabase();
-        const now = Date.now();
-        const result = db.prepare('INSERT INTO bookmarks (parent_id, type, title, url, position, created_at, updated_at) VALUES (NULL, ?, ?, NULL, 0, ?, ?)').run('folder', 'Bookmarks Bar', now, now);
-        parentId = result.lastInsertRowid;
-      }
+      const parentId = data.parentId || bookmarksDb.getBookmarksBarId();
       return bookmarksDb.addBookmark(parentId, data.title, data.url, data.favicon);
     } catch (err) {
       console.error('[Bookmarks] add error:', err);

@@ -1,41 +1,69 @@
-const { getDatabase } = require('./database');
+// Bookmarks storage using JSON file
+const { readJSON, writeJSON } = require('./database');
+
+const BOOKMARKS_FILE = 'bookmarks.json';
+let nextId = 1;
+
+function loadBookmarks() {
+  const data = readJSON(BOOKMARKS_FILE, null);
+  if (!data) {
+    // Initialize with default Bookmarks Bar folder
+    const now = Date.now();
+    const initial = {
+      nextId: 2,
+      items: [
+        { id: 1, parentId: null, type: 'folder', title: 'Bookmarks Bar', url: null, favicon: null, position: 0, createdAt: now, updatedAt: now }
+      ]
+    };
+    writeJSON(BOOKMARKS_FILE, initial);
+    nextId = 2;
+    return initial.items;
+  }
+  nextId = data.nextId || 1;
+  return data.items || [];
+}
+
+function saveBookmarks(items) {
+  writeJSON(BOOKMARKS_FILE, { nextId, items });
+}
 
 function getBookmarksBarId() {
-  const db = getDatabase();
-  const row = db.prepare('SELECT id FROM bookmarks WHERE parent_id IS NULL AND type = ? AND title = ?')
-    .get('folder', 'Bookmarks Bar');
-  return row ? row.id : null;
+  const items = loadBookmarks();
+  const bar = items.find(b => b.parentId === null && b.type === 'folder' && b.title === 'Bookmarks Bar');
+  return bar ? bar.id : null;
 }
 
 function addBookmark(parentId, title, url, favicon) {
-  const db = getDatabase();
+  const items = loadBookmarks();
+  const children = items.filter(b => b.parentId === parentId);
+  const maxPos = children.reduce((max, b) => Math.max(max, b.position || 0), -1);
   const now = Date.now();
-  const maxPos = db.prepare('SELECT MAX(position) as max FROM bookmarks WHERE parent_id = ?').get(parentId);
-  const position = (maxPos && maxPos.max != null) ? maxPos.max + 1 : 0;
-
-  const result = db.prepare(
-    'INSERT INTO bookmarks (parent_id, type, title, url, favicon, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(parentId, 'bookmark', title, url, favicon || null, position, now, now);
-
-  return result.lastInsertRowid;
+  const id = nextId++;
+  items.push({
+    id, parentId, type: 'bookmark', title, url, favicon: favicon || null,
+    position: maxPos + 1, createdAt: now, updatedAt: now
+  });
+  saveBookmarks(items);
+  return id;
 }
 
 function addFolder(parentId, title) {
-  const db = getDatabase();
+  const items = loadBookmarks();
+  const children = items.filter(b => b.parentId === parentId);
+  const maxPos = children.reduce((max, b) => Math.max(max, b.position || 0), -1);
   const now = Date.now();
-  const maxPos = db.prepare('SELECT MAX(position) as max FROM bookmarks WHERE parent_id = ?').get(parentId);
-  const position = (maxPos && maxPos.max != null) ? maxPos.max + 1 : 0;
-
-  const result = db.prepare(
-    'INSERT INTO bookmarks (parent_id, type, title, url, position, created_at, updated_at) VALUES (?, ?, ?, NULL, ?, ?, ?)'
-  ).run(parentId, 'folder', title, position, now, now);
-
-  return result.lastInsertRowid;
+  const id = nextId++;
+  items.push({
+    id, parentId, type: 'folder', title, url: null, favicon: null,
+    position: maxPos + 1, createdAt: now, updatedAt: now
+  });
+  saveBookmarks(items);
+  return id;
 }
 
 function getChildren(folderId) {
-  const db = getDatabase();
-  return db.prepare('SELECT * FROM bookmarks WHERE parent_id = ? ORDER BY position').all(folderId);
+  const items = loadBookmarks();
+  return items.filter(b => b.parentId === folderId).sort((a, b) => (a.position || 0) - (b.position || 0));
 }
 
 function getBookmarksBar() {
@@ -45,31 +73,30 @@ function getBookmarksBar() {
 }
 
 function getAll() {
-  const db = getDatabase();
-  return db.prepare('SELECT * FROM bookmarks ORDER BY parent_id, position').all();
+  return loadBookmarks();
 }
 
 function isBookmarked(url) {
-  const db = getDatabase();
-  const row = db.prepare('SELECT id FROM bookmarks WHERE url = ? AND type = ?').get(url, 'bookmark');
-  return !!row;
+  const items = loadBookmarks();
+  return items.some(b => b.url === url && b.type === 'bookmark');
 }
 
 function removeByUrl(url) {
-  const db = getDatabase();
-  db.prepare('DELETE FROM bookmarks WHERE url = ? AND type = ?').run(url, 'bookmark');
+  const items = loadBookmarks();
+  const filtered = items.filter(b => !(b.url === url && b.type === 'bookmark'));
+  saveBookmarks(filtered);
 }
 
 function deleteBookmark(id) {
-  const db = getDatabase();
-  db.prepare('DELETE FROM bookmarks WHERE id = ?').run(id);
+  const items = loadBookmarks();
+  const filtered = items.filter(b => b.id !== id);
+  saveBookmarks(filtered);
 }
 
 function search(query) {
-  const db = getDatabase();
-  const pattern = `%${query}%`;
-  return db.prepare('SELECT * FROM bookmarks WHERE type = ? AND (title LIKE ? OR url LIKE ?) ORDER BY created_at DESC')
-    .all('bookmark', pattern, pattern);
+  const items = loadBookmarks();
+  const q = query.toLowerCase();
+  return items.filter(b => b.type === 'bookmark' && ((b.title && b.title.toLowerCase().includes(q)) || (b.url && b.url.toLowerCase().includes(q))));
 }
 
 module.exports = {
