@@ -51,4 +51,22 @@ contextBridge.exposeInMainWorld('astra', {
     maximize: () => ipcRenderer.invoke('window:maximize'),
     close: () => ipcRenderer.invoke('window:close'),
   },
+
+  chrome: {
+    expandFull: () => ipcRenderer.invoke('chrome:expandFull'),
+    restoreSize: () => ipcRenderer.invoke('chrome:restoreSize'),
+    setDownloadsVisible: (visible) => ipcRenderer.invoke('chrome:setDownloadsVisible', visible),
+  },
+
+  downloads: {
+    cancel: (id) => ipcRenderer.invoke('download:cancel', id),
+    pause: (id) => ipcRenderer.invoke('download:pause', id),
+    resume: (id) => ipcRenderer.invoke('download:resume', id),
+    open: (id) => ipcRenderer.invoke('download:open', id),
+    showInFolder: (id) => ipcRenderer.invoke('download:showInFolder', id),
+    clearCompleted: () => ipcRenderer.invoke('download:clearCompleted'),
+    onStarted: (cb) => { ipcRenderer.on('download:started', (_e, data) => cb(data)); },
+    onProgress: (cb) => { ipcRenderer.on('download:progress', (_e, data) => cb(data)); },
+    onDone: (cb) => { ipcRenderer.on('download:done', (_e, data) => cb(data)); },
+  },
 });

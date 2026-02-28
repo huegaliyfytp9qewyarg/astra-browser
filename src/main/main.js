@@ -7,6 +7,7 @@ const { buildAppMenu } = require('./menu');
 const { registerShortcuts } = require('./shortcuts');
 const { initAdBlocker } = require('./privacy/ad-blocker');
 const { initHttpsUpgrade } = require('./privacy/https-upgrade');
+const downloadManager = require('./download-manager');
 
 // Register astra:// as a privileged scheme before app is ready
 protocol.registerSchemesAsPrivileged([
@@ -35,6 +36,9 @@ app.whenReady().then(async () => {
     details.requestHeaders['Sec-GPC'] = '1';
     callback({ requestHeaders: details.requestHeaders });
   });
+
+  // Initialize download manager
+  downloadManager.init();
 
   // Register IPC handlers
   registerIpcHandlers();

@@ -82,6 +82,14 @@
     <div id="bookmarks-items"></div>
   </div>
 
+  <!-- Downloads bar -->
+  <div id="downloads-bar">
+    <div id="downloads-items"></div>
+    <button id="downloads-close-btn" title="Close downloads bar">
+      <svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.2"/></svg>
+    </button>
+  </div>
+
   <!-- Context menu for bookmarks -->
   <div id="bm-context-menu" style="display:none;position:fixed;z-index:9999;background:var(--bg-toolbar);border:1px solid var(--border);border-radius:6px;padding:4px 0;min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.4);">
     <div class="bm-ctx-item" id="bm-ctx-edit" style="padding:6px 14px;cursor:pointer;font-size:12px;color:var(--text-primary);transition:background 0.1s;">Edit bookmark</div>
@@ -254,7 +262,7 @@
     ctxRemove.addEventListener('mouseenter', function() { this.style.background = 'var(--btn-hover)'; });
     ctxRemove.addEventListener('mouseleave', function() { this.style.background = ''; });
 
-    // Edit action — save bookmark info before hiding context menu
+    // Edit action — expand chrome to full window, then show dialog
     ctxEdit.addEventListener('click', function(e) {
       e.stopPropagation();
       if (!ctxBookmark) return;
@@ -262,8 +270,10 @@
       editTitle.value = ctxBookmark.title || '';
       editUrl.value = ctxBookmark.url || '';
       ctxMenu.style.display = 'none';
-      editOverlay.style.display = 'block';
-      setTimeout(function() { editTitle.focus(); editTitle.select(); }, 50);
+      astra.chrome.expandFull().then(function() {
+        editOverlay.style.display = 'block';
+        setTimeout(function() { editTitle.focus(); editTitle.select(); }, 50);
+      });
     });
 
     // Remove action from context menu
@@ -278,17 +288,23 @@
       hideContextMenu();
     });
 
+    function closeEditDialog() {
+      editOverlay.style.display = 'none';
+      editingBookmarkUrl = null;
+      astra.chrome.restoreSize();
+    }
+
     // Edit dialog — Done button (save)
     editSave.addEventListener('click', function() {
       if (!editingBookmarkUrl) return;
       var newTitle = editTitle.value.trim();
       var newUrl = editUrl.value.trim();
       if (!newTitle || !newUrl) return;
+      var oldUrl = editingBookmarkUrl;
       astra.bookmarks.update(editingBookmarkUrl, { title: newTitle, url: newUrl }).then(function() {
-        editOverlay.style.display = 'none';
-        editingBookmarkUrl = null;
+        closeEditDialog();
         loadBar();
-        if (editingBookmarkUrl === pageUrl && newUrl !== pageUrl) {
+        if (oldUrl === pageUrl && newUrl !== pageUrl) {
           isBm = false; updateIcon();
         }
       });
@@ -299,8 +315,7 @@
       if (!editingBookmarkUrl) return;
       var removedUrl = editingBookmarkUrl;
       astra.bookmarks.remove(removedUrl).then(function() {
-        editOverlay.style.display = 'none';
-        editingBookmarkUrl = null;
+        closeEditDialog();
         loadBar();
         if (removedUrl === pageUrl) { isBm = false; updateIcon(); }
       });
@@ -308,19 +323,17 @@
 
     // Edit dialog — Cancel button
     editCancel.addEventListener('click', function() {
-      editOverlay.style.display = 'none';
-      editingBookmarkUrl = null;
+      closeEditDialog();
     });
 
     // Close edit dialog on overlay click, Escape to cancel, Enter to save
     editOverlay.addEventListener('click', function(e) {
       if (e.target === editOverlay) {
-        editOverlay.style.display = 'none';
-        editingBookmarkUrl = null;
+        closeEditDialog();
       }
     });
     editOverlay.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') { editOverlay.style.display = 'none'; editingBookmarkUrl = null; }
+      if (e.key === 'Escape') { closeEditDialog(); }
       if (e.key === 'Enter') { editSave.click(); }
     });
 
@@ -354,6 +367,148 @@
 
     // Initial load
     loadBar();
+  })();
+  </script>
+
+  <!-- Downloads bar logic -->
+  <script>
+  (function() {
+    var dlBar = document.getElementById('downloads-bar');
+    var dlItems = document.getElementById('downloads-items');
+    var dlCloseBtn = document.getElementById('downloads-close-btn');
+    var activeDownloads = {};
+
+    function formatSize(bytes) {
+      if (!bytes || bytes <= 0) return '0 B';
+      var units = ['B', 'KB', 'MB', 'GB'];
+      var i = 0;
+      var size = bytes;
+      while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
+      return size.toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+    }
+
+    function showBar() {
+      dlBar.classList.add('visible');
+      astra.chrome.setDownloadsVisible(true);
+    }
+
+    function hideBar() {
+      dlBar.classList.remove('visible');
+      astra.chrome.setDownloadsVisible(false);
+    }
+
+    function renderDownloads() {
+      dlItems.innerHTML = '';
+      var ids = Object.keys(activeDownloads);
+      if (ids.length === 0) { hideBar(); return; }
+
+      ids.forEach(function(id) {
+        var dl = activeDownloads[id];
+        var el = document.createElement('div');
+        el.className = 'download-item';
+        if (dl.state === 'completed') el.className += ' completed';
+        if (dl.state === 'cancelled' || dl.state === 'interrupted') el.className += ' failed';
+
+        var fname = document.createElement('span');
+        fname.className = 'download-filename';
+        fname.textContent = dl.filename;
+        fname.title = dl.filename;
+        el.appendChild(fname);
+
+        if (dl.state === 'progressing') {
+          var pbar = document.createElement('div');
+          pbar.className = 'download-progress-bar';
+          var pfill = document.createElement('div');
+          pfill.className = 'download-progress-fill';
+          var pct = dl.totalBytes > 0 ? Math.round((dl.receivedBytes / dl.totalBytes) * 100) : 0;
+          pfill.style.width = pct + '%';
+          pbar.appendChild(pfill);
+          el.appendChild(pbar);
+
+          // Cancel button
+          var cancelBtn = document.createElement('button');
+          cancelBtn.className = 'download-action-btn';
+          cancelBtn.title = 'Cancel';
+          cancelBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" stroke-width="1.2"/></svg>';
+          cancelBtn.addEventListener('click', function() { astra.downloads.cancel(dl.id); });
+          el.appendChild(cancelBtn);
+        } else if (dl.state === 'completed') {
+          var sizeSpan = document.createElement('span');
+          sizeSpan.style.cssText = 'font-size:10px;color:var(--text-muted);flex-shrink:0;';
+          sizeSpan.textContent = formatSize(dl.receivedBytes);
+          el.appendChild(sizeSpan);
+
+          // Open file button
+          var openBtn = document.createElement('button');
+          openBtn.className = 'download-action-btn';
+          openBtn.title = 'Open file';
+          openBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 10V2h3l1.5 1.5H10v2" stroke="currentColor" stroke-width="1" fill="none"/><path d="M1 6h7l1.5 4H2.5L1 6z" stroke="currentColor" stroke-width="1" fill="none"/></svg>';
+          openBtn.addEventListener('click', function() { astra.downloads.open(dl.id); });
+          el.appendChild(openBtn);
+
+          // Show in folder button
+          var folderBtn = document.createElement('button');
+          folderBtn.className = 'download-action-btn';
+          folderBtn.title = 'Show in folder';
+          folderBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 3v7h10V4.5H5.5L4 3H1z" stroke="currentColor" stroke-width="1" fill="none"/></svg>';
+          folderBtn.addEventListener('click', function() { astra.downloads.showInFolder(dl.id); });
+          el.appendChild(folderBtn);
+
+          // Dismiss button
+          var dismissBtn = document.createElement('button');
+          dismissBtn.className = 'download-action-btn';
+          dismissBtn.title = 'Dismiss';
+          dismissBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" stroke-width="1.2"/></svg>';
+          dismissBtn.addEventListener('click', function() {
+            delete activeDownloads[dl.id];
+            renderDownloads();
+          });
+          el.appendChild(dismissBtn);
+        } else {
+          // cancelled / interrupted
+          var statusSpan = document.createElement('span');
+          statusSpan.style.cssText = 'font-size:10px;color:#ef4444;flex-shrink:0;';
+          statusSpan.textContent = dl.state === 'cancelled' ? 'Cancelled' : 'Failed';
+          el.appendChild(statusSpan);
+
+          var dismissBtn2 = document.createElement('button');
+          dismissBtn2.className = 'download-action-btn';
+          dismissBtn2.title = 'Dismiss';
+          dismissBtn2.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" stroke-width="1.2"/></svg>';
+          dismissBtn2.addEventListener('click', function() {
+            delete activeDownloads[dl.id];
+            renderDownloads();
+          });
+          el.appendChild(dismissBtn2);
+        }
+
+        dlItems.appendChild(el);
+      });
+    }
+
+    // Close button hides bar and clears all
+    dlCloseBtn.addEventListener('click', function() {
+      activeDownloads = {};
+      astra.downloads.clearCompleted();
+      hideBar();
+    });
+
+    // Download events from main process
+    astra.downloads.onStarted(function(dl) {
+      activeDownloads[dl.id] = dl;
+      showBar();
+      renderDownloads();
+    });
+
+    astra.downloads.onProgress(function(dl) {
+      activeDownloads[dl.id] = dl;
+      renderDownloads();
+    });
+
+    astra.downloads.onDone(function(dl) {
+      activeDownloads[dl.id] = dl;
+      renderDownloads();
+    });
   })();
   </script>
 </body>

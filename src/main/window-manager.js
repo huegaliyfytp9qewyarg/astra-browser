@@ -4,6 +4,8 @@ const { CHROME_HEIGHT } = require('../shared/constants');
 
 let mainWindow = null;
 let chromeView = null;
+let chromeExpanded = false;
+let downloadsBarHeight = 0;
 
 function createMainWindow() {
   mainWindow = new BaseWindow({
@@ -60,13 +62,27 @@ function createMainWindow() {
 function updateLayout() {
   if (!mainWindow || !chromeView) return;
   const { width, height } = mainWindow.getContentBounds();
-  chromeView.setBounds({ x: 0, y: 0, width, height: CHROME_HEIGHT });
+  if (chromeExpanded) {
+    chromeView.setBounds({ x: 0, y: 0, width, height });
+  } else {
+    chromeView.setBounds({ x: 0, y: 0, width, height: CHROME_HEIGHT + downloadsBarHeight });
+  }
 
   // Also resize the active tab
   try {
     const tabManager = require('./tab-manager');
     tabManager.updateActiveTabBounds();
   } catch { /* tab manager not ready yet */ }
+}
+
+function expandChrome() {
+  chromeExpanded = true;
+  updateLayout();
+}
+
+function restoreChrome() {
+  chromeExpanded = false;
+  updateLayout();
 }
 
 function getMainWindow() {
@@ -77,14 +93,20 @@ function getChromeView() {
   return chromeView;
 }
 
+function setDownloadsBarHeight(h) {
+  downloadsBarHeight = h;
+  updateLayout();
+}
+
 function getContentBounds() {
   if (!mainWindow) return { x: 0, y: CHROME_HEIGHT, width: 800, height: 520 };
   const { width, height } = mainWindow.getContentBounds();
+  const chromeH = CHROME_HEIGHT + downloadsBarHeight;
   return {
     x: 0,
-    y: CHROME_HEIGHT,
+    y: chromeH,
     width,
-    height: height - CHROME_HEIGHT,
+    height: height - chromeH,
   };
 }
 
@@ -94,4 +116,7 @@ module.exports = {
   getChromeView,
   getContentBounds,
   updateLayout,
+  expandChrome,
+  restoreChrome,
+  setDownloadsBarHeight,
 };

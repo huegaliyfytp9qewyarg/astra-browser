@@ -41,7 +41,20 @@ module.exports = {
     WINDOW_MINIMIZE: 'window:minimize',
     WINDOW_MAXIMIZE: 'window:maximize',
     WINDOW_CLOSE: 'window:close',
+
+    CHROME_EXPAND_FULL: 'chrome:expandFull',
+    CHROME_RESTORE_SIZE: 'chrome:restoreSize',
+    CHROME_SET_DOWNLOADS_VISIBLE: 'chrome:setDownloadsVisible',
+
+    DOWNLOAD_CANCEL: 'download:cancel',
+    DOWNLOAD_PAUSE: 'download:pause',
+    DOWNLOAD_RESUME: 'download:resume',
+    DOWNLOAD_OPEN: 'download:open',
+    DOWNLOAD_SHOW_IN_FOLDER: 'download:showInFolder',
+    DOWNLOAD_CLEAR_COMPLETED: 'download:clearCompleted',
   },
+
+  DOWNLOADS_BAR_HEIGHT: 36,
 
   CHROME_HEIGHT: 108, // tab bar (36) + toolbar (44) + bookmarks bar (28)
   TAB_BAR_HEIGHT: 36,

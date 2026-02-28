@@ -2,7 +2,8 @@ const { ipcMain } = require('electron');
 const { IPC } = require('../shared/constants');
 const tabManager = require('./tab-manager');
 const navigation = require('./navigation');
-const { getMainWindow } = require('./window-manager');
+const { getMainWindow, expandChrome, restoreChrome, setDownloadsBarHeight } = require('./window-manager');
+const downloadManager = require('./download-manager');
 
 function registerIpcHandlers() {
   // Tab management
@@ -201,6 +202,45 @@ function registerIpcHandlers() {
   ipcMain.handle(IPC.SETTINGS_GET_ALL, async () => {
     const settingsStore = require('./storage/settings-store');
     return await settingsStore.getAll();
+  });
+
+  // Chrome expand/restore (for modal dialogs)
+  ipcMain.handle(IPC.CHROME_EXPAND_FULL, () => {
+    expandChrome();
+  });
+
+  ipcMain.handle(IPC.CHROME_RESTORE_SIZE, () => {
+    restoreChrome();
+  });
+
+  ipcMain.handle(IPC.CHROME_SET_DOWNLOADS_VISIBLE, (_e, visible) => {
+    const { DOWNLOADS_BAR_HEIGHT } = require('../shared/constants');
+    setDownloadsBarHeight(visible ? DOWNLOADS_BAR_HEIGHT : 0);
+  });
+
+  // Downloads
+  ipcMain.handle(IPC.DOWNLOAD_CANCEL, (_e, id) => {
+    downloadManager.cancel(id);
+  });
+
+  ipcMain.handle(IPC.DOWNLOAD_PAUSE, (_e, id) => {
+    downloadManager.pause(id);
+  });
+
+  ipcMain.handle(IPC.DOWNLOAD_RESUME, (_e, id) => {
+    downloadManager.resume(id);
+  });
+
+  ipcMain.handle(IPC.DOWNLOAD_OPEN, (_e, id) => {
+    downloadManager.openFile(id);
+  });
+
+  ipcMain.handle(IPC.DOWNLOAD_SHOW_IN_FOLDER, (_e, id) => {
+    downloadManager.showInFolder(id);
+  });
+
+  ipcMain.handle(IPC.DOWNLOAD_CLEAR_COMPLETED, () => {
+    downloadManager.clearCompleted();
   });
 }
 
