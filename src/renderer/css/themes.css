@@ -1,17 +1,19 @@
 /* Light Theme */
 body.theme-light {
   --bg-primary: #ffffff;
-  --bg-secondary: #f0f0f4;
-  --bg-tab: #e0e0e4;
+  --bg-secondary: #f5f5f8;
+  --bg-tab: #e8e8ed;
   --bg-tab-active: #ffffff;
-  --bg-tab-hover: #ebebef;
-  --bg-toolbar: #f0f0f4;
+  --bg-tab-hover: #ededf2;
+  --bg-toolbar: #f5f5f8;
+  --bg-card: rgba(0, 0, 0, 0.03);
   --text-primary: #1a1a2e;
   --text-secondary: #5c5c7a;
   --text-muted: #8e8ea0;
   --border: #d4d4dc;
   --accent: #6366f1;
   --accent-hover: #4f46e5;
+  --accent-glow: rgba(99, 102, 241, 0.25);
   --address-bg: #ffffff;
   --address-border: #d4d4dc;
   --address-focus-border: #6366f1;
@@ -20,28 +22,44 @@ body.theme-light {
   --badge-bg: #6366f1;
   --badge-text: #ffffff;
   --scrollbar-thumb: #c4c4cc;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --gradient-start: #f5f5f8;
+  --gradient-end: #eeeef3;
 }
 
 /* Dark Theme (Default) */
 body.theme-dark {
-  --bg-primary: #1a1b26;
-  --bg-secondary: #16161e;
-  --bg-tab: #24253a;
-  --bg-tab-active: #1a1b26;
-  --bg-tab-hover: #2a2b42;
-  --bg-toolbar: #1a1b26;
-  --text-primary: #c0caf5;
-  --text-secondary: #9aa5ce;
-  --text-muted: #565f89;
-  --border: #2f3051;
-  --accent: #7aa2f7;
-  --accent-hover: #89b4fa;
-  --address-bg: #24253a;
-  --address-border: #2f3051;
-  --address-focus-border: #7aa2f7;
-  --btn-hover: rgba(255, 255, 255, 0.08);
-  --close-hover: #e81123;
-  --badge-bg: #7aa2f7;
-  --badge-text: #1a1b26;
-  --scrollbar-thumb: #3b3d57;
+  --bg-primary: #0f0f17;
+  --bg-secondary: #0b0b12;
+  --bg-tab: #1a1b2e;
+  --bg-tab-active: #0f0f17;
+  --bg-tab-hover: #222338;
+  --bg-toolbar: #0f0f17;
+  --bg-card: rgba(255, 255, 255, 0.03);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+  --border: #1e1f36;
+  --accent: #818cf8;
+  --accent-hover: #a5b4fc;
+  --accent-glow: rgba(129, 140, 248, 0.2);
+  --address-bg: #161727;
+  --address-border: #1e1f36;
+  --address-focus-border: #818cf8;
+  --btn-hover: rgba(255, 255, 255, 0.06);
+  --close-hover: #ef4444;
+  --badge-bg: #818cf8;
+  --badge-text: #0f0f17;
+  --scrollbar-thumb: #2a2b42;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --glass-bg: rgba(15, 15, 23, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --gradient-start: #0f0f17;
+  --gradient-end: #131320;
 }
