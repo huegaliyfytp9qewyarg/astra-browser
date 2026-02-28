@@ -58,6 +58,22 @@ contextBridge.exposeInMainWorld('astra', {
     setDownloadsVisible: (visible) => ipcRenderer.invoke('chrome:setDownloadsVisible', visible),
   },
 
+  find: {
+    query: (text) => ipcRenderer.invoke('find:query', text),
+    next: (text) => ipcRenderer.invoke('find:next', text),
+    prev: (text) => ipcRenderer.invoke('find:prev', text),
+    stop: () => ipcRenderer.invoke('find:stop'),
+    setBarHeight: (h) => ipcRenderer.invoke('find:setBarHeight', h),
+    onShow: (cb) => { ipcRenderer.on('find:show', () => cb()); },
+    onHide: (cb) => { ipcRenderer.on('find:hide', () => cb()); },
+    onResult: (cb) => { ipcRenderer.on('find:result', (_e, data) => cb(data)); },
+  },
+
+  events: {
+    onAddressBarFocus: (cb) => { ipcRenderer.on('addressbar:focus', () => cb()); },
+    onBookmarkToggle: (cb) => { ipcRenderer.on('bookmark:toggle', () => cb()); },
+  },
+
   downloads: {
     cancel: (id) => ipcRenderer.invoke('download:cancel', id),
     pause: (id) => ipcRenderer.invoke('download:pause', id),

@@ -2,7 +2,7 @@ const { ipcMain } = require('electron');
 const { IPC } = require('../shared/constants');
 const tabManager = require('./tab-manager');
 const navigation = require('./navigation');
-const { getMainWindow, expandChrome, restoreChrome, setDownloadsBarHeight } = require('./window-manager');
+const { getMainWindow, expandChrome, restoreChrome, setDownloadsBarHeight, setFindBarHeight } = require('./window-manager');
 const downloadManager = require('./download-manager');
 
 function registerIpcHandlers() {
@@ -202,6 +202,31 @@ function registerIpcHandlers() {
   ipcMain.handle(IPC.SETTINGS_GET_ALL, async () => {
     const settingsStore = require('./storage/settings-store');
     return await settingsStore.getAll();
+  });
+
+  // Find in page
+  ipcMain.handle('find:query', (_e, text) => {
+    const tab = tabManager.getActiveTab();
+    if (tab && text) tab.view.webContents.findInPage(text);
+  });
+
+  ipcMain.handle('find:next', (_e, text) => {
+    const tab = tabManager.getActiveTab();
+    if (tab && text) tab.view.webContents.findInPage(text, { forward: true, findNext: true });
+  });
+
+  ipcMain.handle('find:prev', (_e, text) => {
+    const tab = tabManager.getActiveTab();
+    if (tab && text) tab.view.webContents.findInPage(text, { forward: false, findNext: true });
+  });
+
+  ipcMain.handle('find:stop', () => {
+    const tab = tabManager.getActiveTab();
+    if (tab) tab.view.webContents.stopFindInPage('clearSelection');
+  });
+
+  ipcMain.handle('find:setBarHeight', (_e, h) => {
+    setFindBarHeight(h);
   });
 
   // Chrome expand/restore (for modal dialogs)

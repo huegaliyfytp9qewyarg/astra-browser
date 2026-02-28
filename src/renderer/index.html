@@ -82,6 +82,21 @@
     <div id="bookmarks-items"></div>
   </div>
 
+  <!-- Find bar -->
+  <div id="find-bar">
+    <input type="text" id="find-input" placeholder="Find in page..." spellcheck="false" autocomplete="off">
+    <span id="find-count"></span>
+    <button class="find-btn" id="find-prev" title="Previous (Shift+Enter)">
+      <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 8l4-4 4 4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+    </button>
+    <button class="find-btn" id="find-next" title="Next (Enter)">
+      <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+    </button>
+    <button class="find-btn" id="find-close" title="Close (Escape)">
+      <svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.2"/></svg>
+    </button>
+  </div>
+
   <!-- Downloads bar -->
   <div id="downloads-bar">
     <div id="downloads-items"></div>
@@ -355,14 +370,6 @@
       }
     });
 
-    // Ctrl+D
-    document.addEventListener('keydown', function(e) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-        e.preventDefault();
-        handleBookmarkClick();
-      }
-    });
-
     // Favicon capture
     astra.tabs.onUpdate(function(tab) {
       if (tab.isActive && tab.favicon) pageFavicon = tab.favicon;
@@ -370,6 +377,102 @@
 
     // Initial load
     loadBar();
+  })();
+  </script>
+
+  <!-- Find in page logic -->
+  <script>
+  (function() {
+    var findBar = document.getElementById('find-bar');
+    var findInput = document.getElementById('find-input');
+    var findCount = document.getElementById('find-count');
+    var findPrev = document.getElementById('find-prev');
+    var findNext = document.getElementById('find-next');
+    var findClose = document.getElementById('find-close');
+    var findVisible = false;
+    var FIND_BAR_HEIGHT = 36;
+
+    function showFindBar() {
+      if (findVisible) { findInput.focus(); findInput.select(); return; }
+      findVisible = true;
+      findBar.classList.add('visible');
+      astra.find.setBarHeight(FIND_BAR_HEIGHT);
+      findInput.value = '';
+      findCount.textContent = '';
+      setTimeout(function() { findInput.focus(); }, 50);
+    }
+
+    function hideFindBar() {
+      if (!findVisible) return;
+      findVisible = false;
+      findBar.classList.remove('visible');
+      astra.find.setBarHeight(0);
+      astra.find.stop();
+      findCount.textContent = '';
+    }
+
+    function doSearch() {
+      var text = findInput.value;
+      if (!text) { findCount.textContent = ''; return; }
+      astra.find.query(text);
+    }
+
+    // Events from main process
+    astra.find.onShow(showFindBar);
+    astra.find.onHide(hideFindBar);
+    astra.find.onResult(function(result) {
+      if (result.matches === 0) {
+        findCount.textContent = 'No matches';
+      } else {
+        findCount.textContent = result.activeMatchOrdinal + '/' + result.matches;
+      }
+    });
+
+    // Input events
+    findInput.addEventListener('input', doSearch);
+    findInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && e.shiftKey) {
+        e.preventDefault();
+        astra.find.prev(findInput.value);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        astra.find.next(findInput.value);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        hideFindBar();
+      }
+    });
+
+    // Button events
+    findPrev.addEventListener('click', function() { astra.find.prev(findInput.value); });
+    findNext.addEventListener('click', function() { astra.find.next(findInput.value); });
+    findClose.addEventListener('click', hideFindBar);
+
+    // Ctrl+F from chrome view
+    document.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        showFindBar();
+      }
+      if (e.key === 'Escape' && findVisible) {
+        e.preventDefault();
+        hideFindBar();
+      }
+    });
+  })();
+  </script>
+
+  <!-- Address bar focus & bookmark toggle from main process -->
+  <script>
+  (function() {
+    astra.events.onAddressBarFocus(function() {
+      var bar = document.getElementById('address-bar');
+      if (bar) { bar.focus(); bar.select(); }
+    });
+    astra.events.onBookmarkToggle(function() {
+      var btn = document.getElementById('bookmark-btn');
+      if (btn) btn.click();
+    });
   })();
   </script>
 

@@ -2,11 +2,13 @@ const { WebContentsView, BaseWindow } = require('electron');
 const path = require('path');
 const { getMainWindow, getChromeView, getContentBounds } = require('./window-manager');
 const { DEFAULT_URL, CHROME_HEIGHT } = require('../shared/constants');
+const { setupContextMenu } = require('./context-menu');
 
 let tabs = new Map();
 let tabOrder = []; // Track tab order for reordering
 let activeTabId = null;
 let tabCounter = 0;
+let closedTabs = []; // Stack of recently closed tab URLs (for Ctrl+Shift+T)
 
 function createTab(url = DEFAULT_URL) {
   const tabId = ++tabCounter;
@@ -116,6 +118,29 @@ function createTab(url = DEFAULT_URL) {
     return { action: 'deny' };
   });
 
+  // Right-click context menu (Copy, Paste, Open Link, Inspect, etc.)
+  setupContextMenu(wc, createTab);
+
+  // Forward find-in-page results to chrome view
+  wc.on('found-in-page', (_event, result) => {
+    const chrome = getChromeView();
+    if (chrome) {
+      chrome.webContents.send('find:result', {
+        activeMatchOrdinal: result.activeMatchOrdinal,
+        matches: result.matches,
+      });
+    }
+  });
+
+  // Escape key: close find bar + stop loading
+  wc.on('before-input-event', (_event, input) => {
+    if (input.key === 'Escape' && input.type === 'keyDown') {
+      const chrome = getChromeView();
+      if (chrome) chrome.webContents.send('find:hide');
+      if (wc.isLoading()) wc.stop();
+    }
+  });
+
   wc.loadURL(url);
   switchTab(tabId);
   return tabId;
@@ -151,6 +176,12 @@ async function performSearchAndInject(wc, query) {
 function closeTab(tabId) {
   const tab = tabs.get(tabId);
   if (!tab) return;
+
+  // Save URL for reopen (Ctrl+Shift+T)
+  if (tab.url && !tab.url.startsWith('astra://newtab')) {
+    closedTabs.push(tab.url);
+    if (closedTabs.length > 25) closedTabs.shift();
+  }
 
   const win = getMainWindow();
   if (win) {
@@ -354,6 +385,12 @@ function notifyChromeNavState(tabId) {
   });
 }
 
+function reopenLastClosedTab() {
+  if (closedTabs.length === 0) return;
+  const url = closedTabs.pop();
+  createTab(url);
+}
+
 module.exports = {
   createTab,
   closeTab,
@@ -369,4 +406,5 @@ module.exports = {
   switchToPrevTab,
   switchToTabIndex,
   updateActiveTabBounds,
+  reopenLastClosedTab,
 };

@@ -6,6 +6,7 @@ let mainWindow = null;
 let chromeView = null;
 let chromeExpanded = false;
 let downloadsBarHeight = 0;
+let findBarHeight = 0;
 
 function createMainWindow() {
   mainWindow = new BaseWindow({
@@ -50,12 +51,6 @@ function createMainWindow() {
     chromeView = null;
   });
 
-  // Create first tab once chrome UI is ready
-  chromeView.webContents.on('did-finish-load', () => {
-    const tabManager = require('./tab-manager');
-    tabManager.createTab();
-  });
-
   return mainWindow;
 }
 
@@ -65,7 +60,7 @@ function updateLayout() {
   if (chromeExpanded) {
     chromeView.setBounds({ x: 0, y: 0, width, height });
   } else {
-    chromeView.setBounds({ x: 0, y: 0, width, height: CHROME_HEIGHT + downloadsBarHeight });
+    chromeView.setBounds({ x: 0, y: 0, width, height: CHROME_HEIGHT + findBarHeight + downloadsBarHeight });
   }
 
   // Also resize the active tab
@@ -106,13 +101,18 @@ function setDownloadsBarHeight(h) {
 function getContentBounds() {
   if (!mainWindow) return { x: 0, y: CHROME_HEIGHT, width: 800, height: 520 };
   const { width, height } = mainWindow.getContentBounds();
-  const chromeH = CHROME_HEIGHT + downloadsBarHeight;
+  const chromeH = CHROME_HEIGHT + findBarHeight + downloadsBarHeight;
   return {
     x: 0,
     y: chromeH,
     width,
     height: height - chromeH,
   };
+}
+
+function setFindBarHeight(h) {
+  findBarHeight = h;
+  updateLayout();
 }
 
 module.exports = {
@@ -124,4 +124,5 @@ module.exports = {
   expandChrome,
   restoreChrome,
   setDownloadsBarHeight,
+  setFindBarHeight,
 };

@@ -1,13 +1,27 @@
 const { app, protocol, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { createMainWindow, getMainWindow } = require('./window-manager');
+const { createMainWindow, getMainWindow, getChromeView } = require('./window-manager');
 const { registerIpcHandlers } = require('./ipc-handlers');
 const { buildAppMenu } = require('./menu');
-const { registerShortcuts } = require('./shortcuts');
 const { initAdBlocker } = require('./privacy/ad-blocker');
 const { initHttpsUpgrade } = require('./privacy/https-upgrade');
 const downloadManager = require('./download-manager');
+const sessionManager = require('./session-manager');
+
+// ── Privacy & Security: Chromium command-line switches ──
+// Disable safe browsing warnings (no "dangerous file" prompts)
+app.commandLine.appendSwitch('disable-features', 'SafeBrowsing,SafeBrowsingEnhancedProtection,DownloadBubble,DownloadBubbleV2');
+// Prevent WebRTC IP leaks
+app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_proxied_udp');
+// Disable background network traffic
+app.commandLine.appendSwitch('disable-background-networking');
+// Disable component updates (no phoning home)
+app.commandLine.appendSwitch('disable-component-update');
+// Disable autofill server communication
+app.commandLine.appendSwitch('disable-sync');
+// Enable smooth scrolling
+app.commandLine.appendSwitch('enable-smooth-scrolling');
 
 // Register astra:// as a privileged scheme before app is ready
 protocol.registerSchemesAsPrivileged([
@@ -30,12 +44,32 @@ app.whenReady().then(async () => {
   await initAdBlocker();
   initHttpsUpgrade();
 
-  // Set DNT header on all requests
+  // ── Privacy headers on all requests ──
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     details.requestHeaders['DNT'] = '1';
     details.requestHeaders['Sec-GPC'] = '1';
     callback({ requestHeaders: details.requestHeaders });
   });
+
+  // ── Permission management ──
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    // Block notification spam, midi, idle detection, display capture
+    const blocked = ['notifications', 'midi', 'idle-detection', 'display-capture'];
+    if (blocked.includes(permission)) return callback(false);
+
+    // Allow: clipboard, media, fullscreen, pointer lock
+    const allowed = [
+      'clipboard-read', 'clipboard-sanitized-write',
+      'media', 'fullscreen', 'pointerLock', 'openExternal',
+    ];
+    if (allowed.includes(permission)) return callback(true);
+
+    // Block everything else by default (geolocation, etc.)
+    callback(false);
+  });
+
+  // ── Spellcheck ──
+  session.defaultSession.setSpellCheckerLanguages(['en-US']);
 
   // Initialize download manager
   downloadManager.init();
@@ -44,13 +78,41 @@ app.whenReady().then(async () => {
   registerIpcHandlers();
 
   // Create the main browser window
-  createMainWindow();
+  const win = createMainWindow();
 
-  // Build application menu
+  // Build application menu (contains all keyboard shortcuts)
   buildAppMenu();
 
-  // Register shortcuts
-  registerShortcuts();
+  // ── Session restore ──
+  const chromeView = getChromeView();
+  const originalHandler = chromeView.webContents.listeners('did-finish-load');
+  chromeView.webContents.removeAllListeners('did-finish-load');
+  chromeView.webContents.on('did-finish-load', () => {
+    const tabManager = require('./tab-manager');
+    const savedTabs = sessionManager.restoreSession();
+    if (savedTabs && savedTabs.length > 0) {
+      savedTabs.forEach((url) => tabManager.createTab(url));
+    } else {
+      tabManager.createTab();
+    }
+  });
+
+  // Save session before quit
+  app.on('before-quit', () => {
+    try {
+      const tabManager = require('./tab-manager');
+      const tabs = tabManager.getAllTabs();
+      sessionManager.saveSession(tabs);
+    } catch { /* ignore */ }
+  });
+
+  win.on('close', () => {
+    try {
+      const tabManager = require('./tab-manager');
+      const tabs = tabManager.getAllTabs();
+      sessionManager.saveSession(tabs);
+    } catch { /* ignore */ }
+  });
 });
 
 app.on('window-all-closed', () => {

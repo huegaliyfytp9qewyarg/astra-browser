@@ -377,6 +377,68 @@ html, body {
   animation: spin 0.8s linear infinite;
 }
 
+/* Find Bar */
+#find-bar {
+  display: none;
+  align-items: center;
+  height: 36px;
+  background: var(--bg-toolbar);
+  padding: 0 8px;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+#find-bar.visible {
+  display: flex;
+}
+
+#find-input {
+  width: 220px;
+  height: 26px;
+  border: 1px solid var(--address-border);
+  border-radius: 4px;
+  background: var(--address-bg);
+  color: var(--text-primary);
+  padding: 0 8px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  flex-shrink: 0;
+}
+
+#find-input:focus {
+  border-color: var(--address-focus-border);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+#find-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 50px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.find-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.find-btn:hover {
+  background: var(--btn-hover);
+  color: var(--text-primary);
+}
+
 /* Downloads Bar */
 #downloads-bar {
   display: none;
