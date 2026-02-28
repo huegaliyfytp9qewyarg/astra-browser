@@ -1,4 +1,4 @@
-const { ipcMain } = require('electron');
+const { ipcMain, Menu, dialog } = require('electron');
 const { IPC } = require('../shared/constants');
 const tabManager = require('./tab-manager');
 const navigation = require('./navigation');
@@ -202,6 +202,82 @@ function registerIpcHandlers() {
   ipcMain.handle(IPC.SETTINGS_GET_ALL, async () => {
     const settingsStore = require('./storage/settings-store');
     return await settingsStore.getAll();
+  });
+
+  // Toolbar menu (⋮ button)
+  ipcMain.handle('menu:show', () => {
+    const { getChromeView } = require('./window-manager');
+    const win = getMainWindow();
+    const menu = Menu.buildFromTemplate([
+      {
+        label: 'New Tab',
+        accelerator: 'Ctrl+T',
+        click: () => tabManager.createTab(),
+      },
+      {
+        label: 'Reopen Closed Tab',
+        accelerator: 'Ctrl+Shift+T',
+        click: () => tabManager.reopenLastClosedTab(),
+      },
+      { type: 'separator' },
+      {
+        label: 'Find in Page...',
+        accelerator: 'Ctrl+F',
+        click: () => {
+          const chrome = getChromeView();
+          if (chrome) chrome.webContents.send('find:show');
+        },
+      },
+      {
+        label: 'Print...',
+        accelerator: 'Ctrl+P',
+        click: () => {
+          const tab = tabManager.getActiveTab();
+          if (tab) tab.view.webContents.print();
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Import from Chrome...',
+        click: async () => {
+          const chromeImport = require('./chrome-import');
+          try {
+            const result = await chromeImport.runImport();
+            const chrome = getChromeView();
+            if (chrome) chrome.webContents.send('bookmarks:refresh');
+            dialog.showMessageBox(win, {
+              type: 'info',
+              title: 'Chrome Import Complete',
+              message: `Imported ${result.bookmarks} bookmarks and ${result.history} history entries from Chrome.`,
+              buttons: ['OK'],
+            });
+          } catch (err) {
+            dialog.showMessageBox(win, {
+              type: 'error',
+              title: 'Import Failed',
+              message: `Could not import Chrome data: ${err.message}`,
+              buttons: ['OK'],
+            });
+          }
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Developer Tools',
+        accelerator: 'F12',
+        click: () => {
+          const tab = tabManager.getActiveTab();
+          if (tab) tab.view.webContents.toggleDevTools();
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit Astra',
+        accelerator: 'Alt+F4',
+        click: () => { if (win) win.close(); },
+      },
+    ]);
+    menu.popup({ window: win });
   });
 
   // Chrome data import

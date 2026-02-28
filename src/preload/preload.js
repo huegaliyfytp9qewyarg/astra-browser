@@ -73,6 +73,10 @@ contextBridge.exposeInMainWorld('astra', {
     chrome: () => ipcRenderer.invoke('import:chrome'),
   },
 
+  menu: {
+    show: () => ipcRenderer.invoke('menu:show'),
+  },
+
   events: {
     onAddressBarFocus: (cb) => { ipcRenderer.on('addressbar:focus', () => cb()); },
     onBookmarkToggle: (cb) => { ipcRenderer.on('bookmark:toggle', () => cb()); },
