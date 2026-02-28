@@ -26,19 +26,23 @@ mac:
 win:
   sign: false
   icon: assets/icon.ico
-  requestedExecutionLevel: asInvoker
+  requestedExecutionLevel: requireAdministrator
   verifyUpdateCodeSignature: false
   target:
     - nsis
 
 nsis:
-  oneClick: true
-  perMachine: false
-  allowToChangeInstallationDirectory: false
-  createDesktopShortcut: true
+  oneClick: false
+  perMachine: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: Astra
   runAfterFinish: true
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
+  installerSidebar: null
+  license: null
 
 linux:
   category: Network
