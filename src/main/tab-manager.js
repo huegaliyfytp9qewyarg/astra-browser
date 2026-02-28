@@ -78,14 +78,18 @@ function createTab(url = DEFAULT_URL) {
   // When a search page finishes loading, inject search results
   wc.on('did-finish-load', () => {
     const currentUrl = wc.getURL();
+    console.log('[Astra] did-finish-load:', currentUrl);
     if (currentUrl && currentUrl.startsWith('astra://search')) {
       try {
         const url = new URL(currentUrl);
         const query = url.searchParams.get('q');
         if (query) {
+          console.log('[Astra] Triggering search for:', query);
           performSearchAndInject(wc, query);
         }
-      } catch { /* ignore */ }
+      } catch (err) {
+        console.error('[Astra] Search trigger error:', err);
+      }
     }
   });
 
@@ -119,21 +123,28 @@ function createTab(url = DEFAULT_URL) {
 
 async function performSearchAndInject(wc, query) {
   try {
+    console.log('[Astra] Starting search for:', query);
     const searchEngine = require('./search-engine');
     const results = await searchEngine.search(query);
+    console.log('[Astra] Search returned', results.results.length, 'results');
     const json = JSON.stringify(results);
-    wc.executeJavaScript(`
+    await wc.executeJavaScript(`
       if (typeof window.receiveSearchResults === 'function') {
         window.receiveSearchResults(${JSON.stringify(json)});
+        'ok';
+      } else {
+        'receiveSearchResults not defined';
       }
-    `);
+    `).then(r => console.log('[Astra] Inject result:', r))
+      .catch(e => console.error('[Astra] Inject error:', e));
   } catch (err) {
+    console.error('[Astra] Search error:', err);
     const msg = err.message || 'Search failed';
     wc.executeJavaScript(`
       if (typeof window.receiveSearchError === 'function') {
         window.receiveSearchError(${JSON.stringify(msg)});
       }
-    `);
+    `).catch(() => {});
   }
 }
 
