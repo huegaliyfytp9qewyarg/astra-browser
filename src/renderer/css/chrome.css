@@ -32,6 +32,7 @@ html, body {
   overflow-x: auto;
   overflow-y: hidden;
   flex: 1;
+  min-width: 0;
   -webkit-app-region: drag;
   scrollbar-width: none;
 }
@@ -156,12 +157,6 @@ html, body {
 
 #new-tab-btn:hover {
   background: var(--btn-hover);
-}
-
-#drag-spacer {
-  flex: 1 1 auto;
-  min-width: 30px;
-  -webkit-app-region: drag;
 }
 
 /* Window Controls */

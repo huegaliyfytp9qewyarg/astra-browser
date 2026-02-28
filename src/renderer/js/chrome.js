@@ -21,6 +21,8 @@ function renderTabs(tabs) {
     const el = createTabElement(tab, index);
     tabsContainer.appendChild(el);
   });
+  // Keep the + button at the end, right after the last tab
+  tabsContainer.appendChild(newTabBtn);
 }
 
 function createTabElement(tab, index) {
