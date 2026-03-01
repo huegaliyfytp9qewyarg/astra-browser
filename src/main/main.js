@@ -30,6 +30,26 @@ app.commandLine.appendSwitch('enable-features', 'DnsOverHttps');
 app.commandLine.appendSwitch('dns-over-https-mode', 'automatic');
 app.commandLine.appendSwitch('dns-over-https-templates', 'https://cloudflare-dns.com/dns-query');
 
+// Single instance lock — reuse existing window when opened via protocol/file
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, commandLine) => {
+    const win = getMainWindow();
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
+    // Open URL passed as argument
+    const url = commandLine.find(arg => arg.startsWith('http://') || arg.startsWith('https://') || arg.endsWith('.html') || arg.endsWith('.htm'));
+    if (url) {
+      const tabManager = require('./tab-manager');
+      tabManager.createTab(url);
+    }
+  });
+}
+
 // Register astra:// as a privileged scheme before app is ready
 protocol.registerSchemesAsPrivileged([
   {
@@ -103,11 +123,19 @@ app.whenReady().then(async () => {
   const chromeView = getChromeView();
   chromeView.webContents.on('did-finish-load', async () => {
     const tabManager = require('./tab-manager');
-    const savedTabs = sessionManager.restoreSession();
-    if (savedTabs && savedTabs.length > 0) {
-      savedTabs.forEach((url) => tabManager.createTab(url));
+
+    // Check if opened with a URL argument (clicked link / file association)
+    const launchUrl = process.argv.find(arg => arg.startsWith('http://') || arg.startsWith('https://') || arg.endsWith('.html') || arg.endsWith('.htm'));
+
+    if (launchUrl) {
+      tabManager.createTab(launchUrl);
     } else {
-      tabManager.createTab();
+      const savedTabs = sessionManager.restoreSession();
+      if (savedTabs && savedTabs.length > 0) {
+        savedTabs.forEach((url) => tabManager.createTab(url));
+      } else {
+        tabManager.createTab();
+      }
     }
 
     // Auto-import browser data on first launch

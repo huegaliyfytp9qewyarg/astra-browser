@@ -77,6 +77,27 @@
     }
     .toggle.active::after { transform: translateX(20px); }
 
+    .default-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #818cf8, #6366f1);
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.3);
+    }
+    .default-btn:hover { opacity: 0.9; }
+    .default-btn:active { transform: scale(0.97); }
+    .default-btn.is-default {
+      background: #22c55e;
+      box-shadow: 0 0 16px rgba(34, 197, 94, 0.3);
+      cursor: default;
+    }
+
     .about {
       text-align: center;
       padding: 24px;
@@ -135,6 +156,17 @@
     </div>
 
     <div class="section">
+      <div class="section-title">General</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Default Browser</div>
+          <div class="setting-desc" id="default-status">Checking...</div>
+        </div>
+        <button class="default-btn" id="set-default-btn">Set as Default</button>
+      </div>
+    </div>
+
+    <div class="section">
       <div class="section-title">Search</div>
       <div class="setting-row">
         <div>
@@ -160,6 +192,31 @@
         btn.classList.toggle('active');
       });
     });
+
+    // Default browser check
+    (async function() {
+      var btn = document.getElementById('set-default-btn');
+      var status = document.getElementById('default-status');
+      try {
+        var isDefault = await window.astra.browser.isDefault();
+        if (isDefault) {
+          btn.textContent = 'Default';
+          btn.classList.add('is-default');
+          status.textContent = 'Astra is your default browser';
+        } else {
+          status.textContent = 'Astra is not your default browser';
+        }
+      } catch {
+        status.textContent = 'Unable to check';
+      }
+
+      btn.addEventListener('click', async function() {
+        if (btn.classList.contains('is-default')) return;
+        btn.textContent = 'Opening Settings...';
+        await window.astra.browser.setDefault();
+        status.textContent = 'Select Astra in Windows Settings to finish';
+      });
+    })();
   </script>
 </body>
 </html>

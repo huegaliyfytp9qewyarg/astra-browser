@@ -79,6 +79,11 @@ contextBridge.exposeInMainWorld('astra', {
     getAvailable: () => ipcRenderer.invoke('import:getAvailable'),
   },
 
+  browser: {
+    isDefault: () => ipcRenderer.invoke('browser:isDefault'),
+    setDefault: () => ipcRenderer.invoke('browser:setDefault'),
+  },
+
   menu: {
     show: () => ipcRenderer.invoke('menu:show'),
   },

@@ -43,6 +43,26 @@ nsis:
   uninstallerIcon: assets/icon.ico
   installerSidebar: null
   license: null
+  include: assets/installer.nsh
+
+fileAssociations:
+  - ext: html
+    name: HTML Document
+    role: Viewer
+  - ext: htm
+    name: HTM Document
+    role: Viewer
+  - ext: xhtml
+    name: XHTML Document
+    role: Viewer
+
+protocols:
+  - name: HTTP
+    schemes:
+      - http
+  - name: HTTPS
+    schemes:
+      - https
 
 linux:
   category: Network

@@ -1,4 +1,4 @@
-const { ipcMain, Menu, dialog } = require('electron');
+const { ipcMain, Menu, dialog, app, shell } = require('electron');
 const { IPC } = require('../shared/constants');
 const tabManager = require('./tab-manager');
 const navigation = require('./navigation');
@@ -277,6 +277,21 @@ function registerIpcHandlers() {
 
   ipcMain.handle('updater:setBarHeight', (_e, h) => {
     setUpdateBarHeight(h);
+  });
+
+  // Default browser
+  ipcMain.handle('browser:isDefault', () => {
+    return app.isDefaultProtocolClient('https');
+  });
+
+  ipcMain.handle('browser:setDefault', () => {
+    app.setAsDefaultProtocolClient('http');
+    app.setAsDefaultProtocolClient('https');
+    // On Windows 10+, open Default Apps settings so user can confirm
+    if (process.platform === 'win32') {
+      shell.openExternal('ms-settings:defaultapps');
+    }
+    return true;
   });
 
   // Settings
