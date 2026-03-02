@@ -1,6 +1,6 @@
 const { WebContentsView, BaseWindow } = require('electron');
 const path = require('path');
-const { getMainWindow, getChromeView, getContentBounds } = require('./window-manager');
+const { getMainWindow, getChromeView, getContentBounds, enterHtmlFullscreen, leaveHtmlFullscreen } = require('./window-manager');
 const { DEFAULT_URL, CHROME_HEIGHT } = require('../shared/constants');
 const { setupContextMenu } = require('./context-menu');
 
@@ -154,6 +154,15 @@ function createTab(url = DEFAULT_URL) {
       if (chrome) chrome.webContents.send('find:hide');
       if (wc.isLoading()) wc.stop();
     }
+  });
+
+  // HTML5 fullscreen (YouTube, Vimeo, etc.) — hide chrome, tab fills window
+  wc.on('enter-html-full-screen', () => {
+    enterHtmlFullscreen();
+  });
+
+  wc.on('leave-html-full-screen', () => {
+    leaveHtmlFullscreen();
   });
 
   wc.loadURL(url);

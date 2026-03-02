@@ -5,6 +5,7 @@ const { CHROME_HEIGHT } = require('../shared/constants');
 let mainWindow = null;
 let chromeView = null;
 let chromeExpanded = false;
+let htmlFullscreen = false;
 let downloadsBarHeight = 0;
 let findBarHeight = 0;
 let updateBarHeight = 0;
@@ -58,7 +59,11 @@ function createMainWindow() {
 function updateLayout() {
   if (!mainWindow || !chromeView) return;
   const { width, height } = mainWindow.getContentBounds();
-  if (chromeExpanded) {
+
+  if (htmlFullscreen) {
+    // HTML5 fullscreen (YouTube etc.) — hide chrome completely, tab fills window
+    chromeView.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+  } else if (chromeExpanded) {
     chromeView.setBounds({ x: 0, y: 0, width, height });
   } else {
     chromeView.setBounds({ x: 0, y: 0, width, height: CHROME_HEIGHT + updateBarHeight + findBarHeight + downloadsBarHeight });
@@ -102,6 +107,11 @@ function setDownloadsBarHeight(h) {
 function getContentBounds() {
   if (!mainWindow) return { x: 0, y: CHROME_HEIGHT, width: 800, height: 520 };
   const { width, height } = mainWindow.getContentBounds();
+
+  if (htmlFullscreen) {
+    return { x: 0, y: 0, width, height };
+  }
+
   const chromeH = CHROME_HEIGHT + updateBarHeight + findBarHeight + downloadsBarHeight;
   return {
     x: 0,
@@ -121,6 +131,20 @@ function setUpdateBarHeight(h) {
   updateLayout();
 }
 
+function enterHtmlFullscreen() {
+  htmlFullscreen = true;
+  updateLayout();
+}
+
+function leaveHtmlFullscreen() {
+  htmlFullscreen = false;
+  updateLayout();
+}
+
+function isHtmlFullscreen() {
+  return htmlFullscreen;
+}
+
 module.exports = {
   createMainWindow,
   getMainWindow,
@@ -132,4 +156,7 @@ module.exports = {
   setDownloadsBarHeight,
   setFindBarHeight,
   setUpdateBarHeight,
+  enterHtmlFullscreen,
+  leaveHtmlFullscreen,
+  isHtmlFullscreen,
 };
