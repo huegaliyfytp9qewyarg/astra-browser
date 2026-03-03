@@ -45,7 +45,6 @@ function loadState() {
 
 function saveState() {
   try {
-    // Read existing file to preserve other keys (e.g. httpsUpgradeEnabled)
     let data = {};
     try { data = JSON.parse(fs.readFileSync(statePath(), 'utf8')); } catch { /* ignore */ }
     data.adBlockEnabled = enabled;
@@ -63,8 +62,24 @@ async function initAdBlocker() {
   loadState();
 
   try {
-    const { ElectronBlocker } = await import('@ghostery/adblocker-electron');
-    const fetch = (await import('cross-fetch')).default;
+    // Use require() for CJS compatibility in Electron's packaged app
+    let ElectronBlocker;
+    try {
+      ElectronBlocker = require('@ghostery/adblocker-electron').ElectronBlocker;
+    } catch {
+      // Fallback to dynamic import for ESM-only builds
+      const mod = await import('@ghostery/adblocker-electron');
+      ElectronBlocker = mod.ElectronBlocker;
+    }
+
+    let fetch;
+    try {
+      fetch = require('cross-fetch');
+      if (fetch.default) fetch = fetch.default;
+    } catch {
+      const mod = await import('cross-fetch');
+      fetch = mod.default;
+    }
 
     const cachePath = path.join(app.getPath('userData'), 'adblocker-engine.bin');
 
@@ -74,9 +89,11 @@ async function initAdBlocker() {
       write: fs.promises.writeFile,
     });
 
-    // Apply saved state — if user had it disabled, don't enable
-    if (enabled) {
-      blocker.enableBlockingInSession(session.defaultSession);
+    // Always enable first, then disable if saved state says so
+    blocker.enableBlockingInSession(session.defaultSession);
+
+    if (!enabled) {
+      blocker.disableBlockingInSession(session.defaultSession);
     }
 
     // Track blocked requests — classify as ad or tracker
@@ -88,9 +105,9 @@ async function initAdBlocker() {
       }
     });
 
-    console.log('Ad blocker initialized successfully');
+    console.log('[AdBlocker] Initialized successfully, enabled:', enabled);
   } catch (err) {
-    console.error('Failed to initialize ad blocker:', err.message);
+    console.error('[AdBlocker] Failed to initialize:', err.message, err.stack);
     enabled = false;
   }
 }
@@ -100,7 +117,10 @@ function isEnabled() {
 }
 
 function toggle() {
-  if (!blocker) return false;
+  if (!blocker) {
+    console.error('[AdBlocker] Cannot toggle — blocker not initialized');
+    return false;
+  }
 
   if (enabled) {
     blocker.disableBlockingInSession(session.defaultSession);
@@ -110,6 +130,7 @@ function toggle() {
     enabled = true;
   }
   saveState();
+  console.log('[AdBlocker] Toggled, now:', enabled);
   return enabled;
 }
 

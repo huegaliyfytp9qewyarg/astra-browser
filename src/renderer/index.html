@@ -801,10 +801,14 @@
       }
     });
 
-    // Tracker toggle (global ad+tracker toggle)
+    // Tracker toggle — linked to ad blocker (Ghostery blocks both together)
     trackerToggle.addEventListener('change', async function() {
+      // Tracker blocking is part of the same engine as ad blocking
+      // so toggling this syncs with the ad blocker toggle
       await astra.privacy.toggleAds();
-      refreshPanel();
+      // Sync the ad blocker toggle to match
+      var status = await astra.privacy.getStatus();
+      adblockToggle.checked = status.adBlockEnabled;
     });
 
     // HTTPS toggle
