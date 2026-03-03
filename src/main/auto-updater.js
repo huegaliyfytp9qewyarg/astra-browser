@@ -10,6 +10,7 @@ function init() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.allowDowngrade = false;
+  autoUpdater.allowPrerelease = false;
 
   autoUpdater.on('checking-for-update', () => {
     console.log('[Updater] Checking for updates...');
@@ -52,6 +53,11 @@ function init() {
   setTimeout(() => {
     checkForUpdates();
   }, 5000);
+
+  // Also check periodically (every 30 minutes)
+  setInterval(() => {
+    checkForUpdates();
+  }, 30 * 60 * 1000);
 }
 
 function sendToChrome(channel, data) {
